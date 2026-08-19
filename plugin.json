@@ -1,0 +1,11 @@
+{
+  "name": "SteamView",
+  "author": "SteamView contributors",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["library", "media", "trailer", "preview", "utility"],
+    "description": "Live media preview of the highlighted game in your Steam library: auto-playing microtrailer, falling back to a screenshot reel, then to hero art. Works with native Steam games and non-Steam shortcuts.",
+    "image": "https://raw.githubusercontent.com/OWNER/steamview/main/assets/preview.png"
+  }
+}

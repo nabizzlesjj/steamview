@@ -1,0 +1,35 @@
+# --- Node / frontend ---
+node_modules/
+.pnpm-store/
+dist/
+*.tsbuildinfo
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Never commit the loader's own copy of the decky module
+decky_plugin.py
+
+# --- Packaging output ---
+out/
+build/
+*.zip
+
+# --- Editors: share tasks.json, ignore personal settings ---
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
+.idea/
+*.iml
+
+# --- OS / misc ---
+.DS_Store
+Thumbs.db
+*.log
+.env

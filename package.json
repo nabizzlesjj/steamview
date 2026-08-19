@@ -1,0 +1,55 @@
+{
+  "name": "steamview",
+  "version": "0.1.0",
+  "description": "Live media preview of the highlighted game in the SteamOS library.",
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "test:py": "pytest",
+    "test": "pnpm run typecheck && pnpm run lint && pnpm run test:py"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/steamview.git"
+  },
+  "keywords": ["decky", "plugin", "steam-deck", "steamos", "library", "trailer", "preview"],
+  "author": "SteamView contributors",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/OWNER/steamview/issues"
+  },
+  "homepage": "https://github.com/OWNER/steamview#readme",
+  "devDependencies": {
+    "@decky/rollup": "^1.0.2",
+    "@decky/ui": "^4.12.0",
+    "@eslint/js": "^9.17.0",
+    "@rollup/rollup-linux-x64-musl": "^4.53.3",
+    "@types/react": "19.1.1",
+    "@types/react-dom": "19.1.1",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "rollup": "^4.53.3",
+    "typescript": "^5.6.2",
+    "typescript-eslint": "^8.19.0"
+  },
+  "dependencies": {
+    "@decky/api": "^1.1.3",
+    "i18next": "^24.2.0",
+    "react-i18next": "^15.4.0",
+    "react-icons": "^5.3.0",
+    "tslib": "^2.7.0"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": ["react", "react-dom"]
+    }
+  }
+}
