@@ -1,0 +1,290 @@
+# On-device test plan
+
+Everything that can be verified without hardware already is: the backend
+resolver has 306 `pytest` cases at 94% coverage with all network mocked,
+and the frontend typechecks, lints and builds clean in CI. What none of
+that can prove is whether the focus hook actually fires on a real Deck,
+whether the microtrailer URL exists, and whether the overlay looks right
+on a 1280x800 panel in Game Mode.
+
+That is what this document is for. It should take about 25 minutes.
+
+**Two things are genuinely unverified** and deserve your attention first,
+because everything else degrades gracefully around them:
+
+| | What to watch |
+| --- | --- |
+| **Does the focus hook fire at all?** | [Test 2](#test-2-native-steam-game). If it does not, nothing else in this document will pass. |
+| **Does the microtrailer URL resolve?** | [Test 3](#test-3-confirm-or-refute-the-microtrailer-url). This is the one URL in the codebase that is a hypothesis rather than a fact. |
+
+---
+
+## Setup
+
+### Install
+
+```
+make package
+```
+
+Copy `out/SteamView-v0.1.0.zip` to the Deck, then in Game Mode:
+
+1. Quick Access Menu (**...** button) → the **plug** icon → **gear** →
+   **Settings**
+2. Turn on **Developer Mode**
+3. **Developer** tab → **Install Plugin from ZIP File** → pick the ZIP
+
+Or, if you have SSH set up:
+
+```
+make deploy DECK_HOST=<your-deck-ip>
+```
+
+### Get at the logs
+
+**Backend** (Python — resolution, caching, HTTP):
+
+```
+make logs DECK_HOST=<your-deck-ip>
+# or, on the Deck itself:
+tail -f ~/homebrew/logs/SteamView/plugin.log
+```
+
+**Frontend** (the focus hook and the overlay): open
+`http://<deck-ip>:8080` in a desktop browser with CEF remote debugging
+enabled, pick the **SharedJSContext** target, and open its Console. Every
+message from the focus hook is prefixed `[SteamView:focus]`; everything
+else is `[SteamView]`.
+
+Keep both open for the first run. Most failures announce themselves.
+
+---
+
+## Test 1: the plugin loads
+
+1. Open the Quick Access Menu → the plug icon.
+2. **SteamView** is in the plugin list with a photo/video icon.
+3. Open it. You see a **Preview** section with eight controls and a
+   **Cache** section with a Clear cache button.
+
+**Backend log should contain:** `SteamView backend ready (cache: …)`
+
+> ❗ **If a red "Preview unavailable" block appears at the top of the
+> panel**, the focus hook did not start. That is the headline failure —
+> note the reason it gives and the frontend console output, and stop
+> here. Everything below depends on it.
+
+---
+
+## Test 2: native Steam game
+
+Pick an installed, popular game with a trailer — Hades, Cyberpunk 2077,
+Elden Ring.
+
+1. Go to **Library** → **Great on Deck** or **All Games**.
+2. Highlight the game with the D-pad or stick. **Do not press A.**
+3. Wait about a second.
+
+**Expect:** a preview appears in the bottom-right corner. It shows the
+game's trailer, muted and looping, with the game's name captioned along
+the bottom.
+
+**Backend log:** a `store.steampowered.com` fetch for that appid on the
+first view, and nothing on subsequent views (it is cached).
+
+| If instead you see… | It means |
+| --- | --- |
+| Nothing at all | The focus hook is not firing. Check the frontend console for `[SteamView:focus]`. |
+| Screenshots, not video | No usable trailer was found, or Data saver is on. Check `trailer_url` in the log. |
+| A single static image | Neither video nor screenshots resolved; this is hero art. Check the `note` field in the log. |
+| The wrong game | The fiber walk found the wrong ancestor. Please report the game and the log line. |
+
+### Now check the detail page
+
+Press **A** to open the game's page. **Expect:** the preview stays
+visible. Press **B** to go back — it stays visible and follows the
+highlight again.
+
+---
+
+## Test 3: confirm or refute the microtrailer URL
+
+This is the one thing the code guesses at. Valve does not publish the
+microtrailer URL, so the backend *probes* for it and falls back to the
+trailer the API does publish.
+
+With the backend log open, highlight a native game you have not viewed
+before and look for a line mentioning `microtrailer`.
+
+- **`trailer_kind: "microtrailer"`** — the hypothesis holds. Previews
+  are ~6 second silent loops, which is the ideal behaviour.
+- **`trailer_kind: "webm"`** — the probe failed and the fallback took
+  over. **This is a working outcome, not a bug**: you get the full
+  trailer instead of the short loop. If you see this on several games,
+  tell me and I will drop the probe so it stops costing a request.
+
+Either way the preview plays. There is no failure mode here, only a
+better and a worse one.
+
+---
+
+## Test 4: Unifideck / non-Steam shortcut
+
+This is Path B, and it has two correct outcomes.
+
+### 4a — a game that also exists on Steam
+
+Highlight an imported title that is also sold on Steam (Cyberpunk 2077
+from Epic, Control from Ubisoft, most GOG catalogue titles).
+
+**Expect:** a real trailer, exactly as for a native game. The backend
+searched the Steam store for the shortcut's name and found it.
+
+**Backend log:** `'Cyberpunk 2077 (Epic)' -> 1091500 ('Cyberpunk 2077', score 1.000)`
+
+### 4b — a game with no Steam presence
+
+Highlight something Steam-exclusive-to-elsewhere, or with an unusual
+name.
+
+**Expect:** the shortcut's own artwork — the SteamGridDB hero Unifideck
+applied. **This is the correct result, not a failure.**
+
+**Backend log:** `no confident store match for 'Whatever The Name Is'`
+
+> ⚠️ **The failure to watch for here is the *wrong* trailer.** The
+> matcher is tuned to refuse anything below 0.82 similarity precisely to
+> avoid this. If you ever see a preview for a different game than the one
+> highlighted, that is the most important bug in this document — please
+> report the shortcut's exact display name.
+
+Worth spot-checking a franchise: highlight a shortcut for *Portal* or
+*Grand Theft Auto V* if you have one, and confirm you do not get *Portal
+2* or *GTA IV*.
+
+---
+
+## Test 5: the fallback ladder
+
+Verify each rung is reachable.
+
+| Rung | How to force it | Expect |
+| --- | --- | --- |
+| Trailer | Preview mode = *Trailer + screenshots*, Data saver off | Video plays |
+| Screenshots | Preview mode = **Screenshots only** | Crossfading stills, ~3.5s each |
+| Hero art | Highlight a shortcut with no Steam match (Test 4b) | One static image |
+| Nothing | Preview mode = **Off** | No overlay at all |
+
+Then force a demotion: turn **Airplane mode** on, use **Clear cache**,
+and highlight a game you have not viewed. **Expect** no overlay and no
+error — not a black box, not a spinner, not a crash. Turn networking back
+on and the preview returns.
+
+---
+
+## Test 6: scroll spam
+
+The one that matters for battery and network.
+
+1. Go to a library view with many games.
+2. Hold the D-pad and scroll **hard** through 30-40 games without pausing.
+3. Watch the backend log while you do.
+
+**Expect:**
+
+- **No video starts** while you are moving. Decoding should only begin
+  once you stop.
+- The log shows **far fewer** fetches than games scrolled past — focus
+  has to settle for 300 ms before anything is requested.
+- No more than **3** concurrent requests at any moment.
+- When you stop, the preview shows **the game you stopped on** — never a
+  game you scrolled past. This is the stale-response guard; if you ever
+  see the wrong game after a fast scroll, that is a real bug.
+- The UI never stutters. The library must feel exactly as it does with
+  the plugin disabled.
+
+Now scroll fast **back and forth** over the same few games. The log
+should show no new fetches at all — they are cached, and duplicate
+in-flight requests are coalesced.
+
+---
+
+## Test 7: every setting works and persists
+
+Change each one, confirm the effect, then **fully restart Steam**
+(Steam menu → Restart Steam) and confirm the setting survived.
+
+| Setting | What to check |
+| --- | --- |
+| **Enabled** → off | Overlay disappears immediately. Library still perfect. |
+| **Preview mode** | All three modes behave as in Test 5 |
+| **Autoplay delay** → 3000 ms | Highlight a game: art first, video only after ~3s |
+| **Autoplay delay** → 0 ms | Video starts as soon as the debounce settles |
+| **Muted** → off | Audio plays *over* Steam's UI sounds. Turn it back on. |
+| **Loop** → off | Trailer plays once and stops on its last frame |
+| **Position** | Preview moves to each of the four corners |
+| **Size** | Small / Medium / Large visibly differ |
+| **Data saver** → on | No video in any mode; screenshots only. Autoplay/Muted/Loop grey out. |
+| **Clear cache** | Button reports how many entries went; next highlight re-fetches |
+
+Also confirm: with **Preview mode = Off** or **Data saver = on**, the
+video-only controls are greyed out rather than silently ignored.
+
+---
+
+## Test 8: battery and thermals
+
+Worth a single longer pass, since previews decode video continuously.
+
+1. Note battery percentage.
+2. Browse the library for 10 minutes with previews on, pausing on games.
+3. Note battery again, and whether the fans spun up.
+4. Turn **Data saver** on and repeat for 10 minutes.
+
+**Expect:** data saver is measurably gentler. If normal mode is
+*dramatically* worse — fans running constantly, several percent of
+battery in ten minutes — tell me; the autoplay delay and the 480p cap are
+the levers.
+
+---
+
+## Test 9: it never breaks the library
+
+The non-negotiable. Confirm all of these hold:
+
+- [ ] Every game in the library still launches normally
+- [ ] Scrolling, filtering, searching and collections all behave
+- [ ] Game detail pages render fully, with the preview alongside rather
+      than on top of anything you need
+- [ ] The preview never steals focus — you can never "land on" it with
+      the D-pad
+- [ ] Disabling the plugin in Decky returns everything to exactly stock
+- [ ] Uninstalling it leaves nothing behind
+
+### Simulating a SteamOS update breaking the hook
+
+Worth doing once, because it is the failure mode most likely to reach
+you for real. In the frontend console:
+
+```js
+// Force the focus hook to fail on next start
+document.addEventListener = () => { throw new Error("simulated breakage"); };
+```
+
+Then toggle **Enabled** off and on. **Expect:** the overlay stays gone,
+the QAM panel shows the "Preview unavailable" block, **and the library
+keeps working completely normally.** Reload Steam to undo.
+
+---
+
+## What to send me if something is wrong
+
+1. Which test number, and what you saw versus what it says to expect
+2. The game's exact display name, and whether it is native or a shortcut
+3. The relevant lines from `~/homebrew/logs/SteamView/plugin.log`
+4. Anything prefixed `[SteamView` from the frontend console
+5. Your SteamOS version (Settings → System) and the plugin version
+
+The single most valuable report is **the wrong game's trailer showing**,
+because that means the matcher needs tightening and no amount of
+off-device testing will find it.
