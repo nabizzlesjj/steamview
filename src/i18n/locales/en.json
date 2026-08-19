@@ -1,0 +1,47 @@
+{
+  "plugin": {
+    "name": "SteamView",
+    "tagline": "Live media preview for the highlighted game"
+  },
+  "settings": {
+    "section": "Preview",
+    "enabled": "Enabled",
+    "enabledDescription": "Show a media preview for the highlighted game.",
+    "previewMode": "Preview mode",
+    "previewModeTrailer": "Trailer + screenshots",
+    "previewModeScreenshots": "Screenshots only",
+    "previewModeOff": "Off",
+    "autoplayDelay": "Autoplay delay",
+    "autoplayDelayDescription": "How long a game must stay highlighted before its trailer starts.",
+    "muted": "Muted",
+    "mutedDescription": "Strongly recommended. Steam's own UI sounds keep playing underneath.",
+    "loop": "Loop",
+    "loopDescription": "Repeat the trailer while the game stays highlighted.",
+    "position": "Overlay position",
+    "positionTopLeft": "Top left",
+    "positionTopRight": "Top right",
+    "positionBottomLeft": "Bottom left",
+    "positionBottomRight": "Bottom right",
+    "size": "Overlay size",
+    "sizeSmall": "Small",
+    "sizeMedium": "Medium",
+    "sizeLarge": "Large",
+    "dataSaver": "Data saver",
+    "dataSaverDescription": "Skip video entirely and show screenshots only.",
+    "cacheSection": "Cache",
+    "clearCache": "Clear cache",
+    "clearCacheDescription": "Delete cached media metadata. Use this if a preview looks wrong or stale.",
+    "cacheEntries": "{{count}} cached, {{size}}",
+    "cacheCleared": "Cleared {{count}} cached entries",
+    "clearing": "Clearing..."
+  },
+  "status": {
+    "section": "Status",
+    "focusUnavailable": "Preview unavailable",
+    "focusUnavailableBody": "SteamView could not hook into the library UI, most likely because a SteamOS update changed it. Your library is unaffected. Please report this with the plugin version and your SteamOS build.",
+    "reason": "Reason: {{reason}}"
+  },
+  "units": {
+    "milliseconds": "{{value}} ms"
+  }
+}

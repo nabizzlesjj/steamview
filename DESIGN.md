@@ -1,8 +1,9 @@
 # SteamView — V1 design
 
-Status: **awaiting sign-off.** The backend described in §3 is built and
-tested. The frontend focus hook in §2 is the part that needs your
-approval before I write it.
+Status: **approved and implemented.** §2 was signed off with one
+amendment: the overlay also stays visible on a game's detail page, not
+only on the grid. §2.1 records how that is achieved without a route
+patch.
 
 ---
 
@@ -107,9 +108,11 @@ after a SteamOS update.
 2. sp.document.addEventListener('focusin', handler,
                                 { capture: true, passive: true })
 3. handler(e):
-     a. scope check — is e.target inside
-        `.${gamepadLibraryClasses.GamepadLibrary}`?   // verified export
-        no  → ignore (we are not in the library)
+     a. scope check — is e.target inside any of
+           `.${gamepadLibraryClasses.GamepadLibrary}`            (grid)
+           `.${basicAppDetailsSectionStylerClasses.AppDetailsRoot}` (detail page)
+           `.${appDetailsClasses.Container}`                     (detail page)
+        no  → ignore (the store, the QAM, a context menu, …)
      b. fiber = getReactInstance(e.target)            // verified export
      c. walk fiber.return upward, at most 30 levels, for the first
         node whose memoizedProps carries an app identity:
@@ -131,8 +134,18 @@ strings that change every release. The only minified value we touch is
 by `@decky/ui`'s class mapper — it is a lookup, not a hardcoded string.
 
 **Everything Steam-specific is a named constant** at the top of
-`focus.ts`: the prop paths, the walk depth, the container class. One
-file, one block, to fix after an update.
+`src/steam/bindings.ts`: the prop paths, the walk depth, the container
+classes, the shortcut app-type value. `focus.ts` next to it holds the
+listener wiring and the failure policy. Two files, and only one of them
+contains anything Valve can rename.
+
+**The detail page needs no separate mechanism.** Steam's app page
+renders ancestors carrying the same `overview` prop the grid does —
+verifiable in GameThemeMusic's own patch, which searches for exactly
+`props.children.props.overview` there. So the same fiber walk resolves an
+app from a focused Play button as from a focused grid tile, and the only
+change required was widening the scope check above. No route patch, no
+route params, no second code path.
 
 ### 2.3 Debounce and cancellation
 
@@ -150,13 +163,20 @@ file, one block, to fix after an update.
 
 ### 2.4 Fallback if `focusin` never fires
 
-If no focus event has been seen within 5 seconds of the user being in the
-library, `focus.ts` switches to a **200 ms polling fallback** that reads
-`getFocusNavController()` (verified export) → active context → the
-focused node's element, and runs the *same* fiber walk from step (b).
-Same primitive, different way of reaching the DOM node. If that also
-yields nothing, the module reports failure and the overlay disables
-itself.
+If no focus event has been seen within 5 seconds, `focus.ts` arms a
+**250 ms poll**. It reads `document.activeElement` first — plain DOM,
+nothing Steam-specific — and only if that is empty does it consult
+`getFocusNavController()` (verified export) for a highlight Steam is
+tracking that never reached the document.
+
+Reading `activeElement` was chosen over going straight to the navigation
+controller because it couples to nothing: the controller's internal field
+names (`m_ActiveContext`, `m_ActiveNavTree`) are exactly the kind of
+thing that gets renamed, so it belongs *below* the DOM in the ladder, not
+above it. Either way the element then goes through the same fiber walk.
+
+The poll costs nothing while the listener is working, because it is never
+armed.
 
 ### 2.5 The feature flag and kill-safety
 
@@ -280,14 +300,13 @@ CDNs, and only for the focused game's media.
 
 ---
 
-## 6. Decisions I need from you
+## 6. Decisions — resolved
 
 1. **The focus hook (§2).** Passive `focusin` + fiber walk, injected via
-   `addGlobalComponent` with zero Valve patching. This is the one thing
-   the brief asked me to get sign-off on.
+   `addGlobalComponent` with zero Valve patching. **Approved as
+   proposed.**
 2. **Match threshold 0.82.** Tuned to reject `Portal` → `Portal 2` and
-   `GTA V` → `GTA IV`. Lowering it recovers more shortcuts but starts
-   showing wrong trailers.
+   `GTA V` → `GTA IV`. **Kept at 0.82.**
 3. **Detail page too?** V1 as specified shows the overlay only while a
    *grid* entry is focused. Opening a game's page hides it. Say the word
    if you want it to persist there.
