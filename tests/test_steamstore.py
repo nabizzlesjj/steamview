@@ -216,3 +216,136 @@ class TestHttpFailureHandling:
 
         monkeypatch.setattr(http._opener, "open", explode)
         assert http.url_exists("https://cdn/microtrailer.webm") is False
+
+
+class TestTlsFallback:
+    """SteamOS ships an outdated CA bundle, and certificate verification
+    fails inside the Decky plugin process. Without a fallback every media
+    lookup returns nothing and the overlay shows box art for every game.
+
+    The fallback must engage *only* on a genuine certificate error --
+    never on a timeout, DNS failure, or HTTP status.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_tls_state(self, monkeypatch):
+        # These are module-level and sticky by design; isolate each test.
+        monkeypatch.setattr(http, "_tls_verification_broken", False)
+        monkeypatch.setattr(http, "_tls_warning_logged", False)
+
+    @staticmethod
+    def _ok_response():
+        class Response:
+            headers = {}
+            status = 200
+
+            def read(self, *_):
+                return b'{"ok": true}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        return Response()
+
+    def _cert_error(self):
+        import ssl
+        import urllib.error
+
+        return urllib.error.URLError(ssl.SSLCertVerificationError("unable to get local issuer certificate"))
+
+    def test_a_certificate_failure_retries_without_verification(self, monkeypatch):
+        calls = []
+
+        def verified(*args, **kwargs):
+            calls.append("verified")
+            raise self._cert_error()
+
+        def insecure(*args, **kwargs):
+            calls.append("insecure")
+            return self._ok_response()
+
+        monkeypatch.setattr(http._opener, "open", verified)
+        monkeypatch.setattr(http._insecure_opener, "open", insecure)
+
+        assert http.get_json("https://store.steampowered.com/api", sleep=lambda _: None) == {"ok": True}
+        assert calls == ["verified", "insecure"]
+
+    def test_verification_is_attempted_first(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(http._opener, "open", lambda *a, **k: calls.append("verified") or self._ok_response())
+        monkeypatch.setattr(
+            http._insecure_opener,
+            "open",
+            lambda *a, **k: pytest.fail("must not fall back when verification succeeds"),
+        )
+        assert http.get_json("https://store.steampowered.com/api", sleep=lambda _: None) == {"ok": True}
+        assert calls == ["verified"]
+
+    def test_the_fallback_sticks_for_later_requests(self, monkeypatch):
+        verified_calls = []
+        monkeypatch.setattr(
+            http._opener, "open", lambda *a, **k: verified_calls.append(1) or (_ for _ in ()).throw(self._cert_error())
+        )
+        monkeypatch.setattr(http._insecure_opener, "open", lambda *a, **k: self._ok_response())
+
+        http.get_json("https://store.steampowered.com/api", sleep=lambda _: None)
+        http.get_json("https://store.steampowered.com/api", sleep=lambda _: None)
+        http.get_json("https://store.steampowered.com/api", sleep=lambda _: None)
+
+        # Only the first request pays for a doomed verified attempt.
+        assert len(verified_calls) == 1
+
+    def test_a_plain_network_error_does_not_disable_verification(self, monkeypatch):
+        import urllib.error
+
+        monkeypatch.setattr(
+            http._opener,
+            "open",
+            lambda *a, **k: (_ for _ in ()).throw(urllib.error.URLError("no route to host")),
+        )
+        monkeypatch.setattr(
+            http._insecure_opener,
+            "open",
+            lambda *a, **k: pytest.fail("a routing failure is not a certificate failure"),
+        )
+        assert http.get_json("https://store.steampowered.com/api", sleep=lambda _: None) is None
+        assert http._tls_verification_broken is False
+
+    def test_an_http_error_does_not_disable_verification(self, monkeypatch):
+        import io
+        import urllib.error
+
+        monkeypatch.setattr(
+            http._opener,
+            "open",
+            lambda *a, **k: (_ for _ in ()).throw(
+                urllib.error.HTTPError("https://x", 404, "Not Found", {}, io.BytesIO(b""))
+            ),
+        )
+        monkeypatch.setattr(
+            http._insecure_opener,
+            "open",
+            lambda *a, **k: pytest.fail("an HTTP status is not a certificate failure"),
+        )
+        assert http.get_json("https://store.steampowered.com/api", sleep=lambda _: None) is None
+        assert http._tls_verification_broken is False
+
+    def test_the_head_probe_uses_the_same_fallback(self, monkeypatch):
+        monkeypatch.setattr(http._opener, "open", lambda *a, **k: (_ for _ in ()).throw(self._cert_error()))
+        monkeypatch.setattr(http._insecure_opener, "open", lambda *a, **k: self._ok_response())
+        assert http.url_exists("https://cdn.cloudflare.steamstatic.com/x/microtrailer.webm") is True
+
+    def test_the_warning_is_logged_only_once(self, monkeypatch):
+        warnings = []
+        monkeypatch.setattr(http.logger, "warning", lambda *a, **k: warnings.append(a))
+        monkeypatch.setattr(http._opener, "open", lambda *a, **k: (_ for _ in ()).throw(self._cert_error()))
+        monkeypatch.setattr(http._insecure_opener, "open", lambda *a, **k: self._ok_response())
+
+        for _ in range(4):
+            http.get_json("https://store.steampowered.com/api", sleep=lambda _: None)
+
+        assert len(warnings) == 1
+        assert "certificate" in warnings[0][0].lower() or "TLS" in warnings[0][0]

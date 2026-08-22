@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import ssl
 import time
 import urllib.error
 import urllib.parse
@@ -43,7 +44,75 @@ class _NoRedirectFor4xx(urllib.request.HTTPRedirectHandler):
     max_redirections = 5
 
 
+def _unverified_context() -> ssl.SSLContext:
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
+
+
 _opener = urllib.request.build_opener(_NoRedirectFor4xx)
+
+# Fallback for SteamOS. See _open() for why this exists.
+_insecure_opener = urllib.request.build_opener(
+    _NoRedirectFor4xx,
+    urllib.request.HTTPSHandler(context=_unverified_context()),
+)
+
+#: Set once verification has been proven broken on this device, so we stop
+#: paying for a doomed verified attempt on every subsequent request.
+_tls_verification_broken = False
+_tls_warning_logged = False
+
+
+def _is_tls_failure(error: BaseException) -> bool:
+    """Whether ``error`` is a certificate/TLS problem rather than a network one."""
+    if isinstance(error, ssl.SSLError):
+        return True
+    reason = getattr(error, "reason", None)
+    return isinstance(reason, ssl.SSLError)
+
+
+def _note_tls_fallback(url: str, error: BaseException) -> None:
+    global _tls_verification_broken, _tls_warning_logged
+    _tls_verification_broken = True
+    if _tls_warning_logged:
+        return
+    _tls_warning_logged = True
+    logger.warning(
+        "steamview.http: TLS certificate verification failed for %s (%s). "
+        "SteamOS's bundled certificate store is outdated inside the Decky plugin "
+        "process, so media metadata will be fetched without certificate "
+        "verification for the rest of this session. This affects only Steam's "
+        "public store and CDN endpoints; the plugin sends no credentials or "
+        "personal data.",
+        url,
+        error,
+    )
+
+
+def _open(request: urllib.request.Request, timeout: float):
+    """Open ``request``, falling back to unverified TLS if verification fails.
+
+    SteamOS ships an outdated CA bundle, and inside the Decky plugin
+    process certificate verification against Steam's own store endpoints
+    fails outright. Without a fallback, every media lookup returns nothing
+    and the overlay silently shows box art for every game.
+
+    Verification is still attempted first, and the fallback engages only
+    after a genuine certificate error -- never after a timeout, DNS
+    failure, or HTTP error. What travels over it is public game metadata,
+    with no credentials and nothing user-identifying.
+    """
+    if _tls_verification_broken:
+        return _insecure_opener.open(request, timeout=timeout)
+    try:
+        return _opener.open(request, timeout=timeout)
+    except (urllib.error.URLError, ssl.SSLError) as exc:
+        if not _is_tls_failure(exc):
+            raise
+        _note_tls_fallback(request.full_url, exc)
+        return _insecure_opener.open(request, timeout=timeout)
 
 
 def build_url(url: str, params: Mapping[str, Any] | None = None) -> str:
@@ -100,7 +169,7 @@ def get_json(
 
     for attempt in range(_MAX_ATTEMPTS):
         try:
-            with _opener.open(request, timeout=timeout) as response:
+            with _open(request, timeout) as response:
                 return json.loads(_read_body(response).decode("utf-8", "replace"))
         except urllib.error.HTTPError as exc:
             if exc.code in _RETRY_STATUSES and attempt < _MAX_ATTEMPTS - 1:
@@ -137,7 +206,7 @@ def url_exists(url: str, timeout: float = DEFAULT_TIMEOUT) -> bool:
         method="HEAD",
     )
     try:
-        with _opener.open(request, timeout=timeout) as response:
+        with _open(request, timeout) as response:
             return 200 <= int(getattr(response, "status", 0) or 0) < 300
     except urllib.error.HTTPError as exc:
         logger.debug("steamview.http: HEAD %s -> HTTP %s", url, exc.code)

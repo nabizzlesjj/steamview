@@ -140,6 +140,22 @@ class MediaResolver:
                 note="resolve-error",
             )
 
+        # One line per resolution, at info level. This is the only view
+        # into what the backend actually decided for a given game, and on
+        # a Deck it is the difference between "the preview is broken" and
+        # a specific, fixable cause.
+        logger.info(
+            "steamview: %s (%s) -> source=%s appid=%s trailer=%s screenshots=%d hero=%s%s",
+            entry.name or entry.cache_key,
+            entry.kind,
+            result.source,
+            result.resolved_appid,
+            result.trailer_kind or "none",
+            len(result.screenshot_urls),
+            "yes" if result.hero_url else "no",
+            f" note={result.note}" if result.note else "",
+        )
+
         payload = result.to_dict()
         try:
             if result.is_empty or result.source == media.SOURCE_EMPTY:
