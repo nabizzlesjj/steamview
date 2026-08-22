@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.5] - 2026-08-22
+
+### Fixed
+
+- **The preview stayed on screen after opening a game.** It now hides on
+  a game's detail page, where Steam already shows the game's own hero
+  art, playtime and Play button and the overlay simply covered them.
+  Detected by two independent signals -- the detail-page container
+  classes and the `/library/app/` route -- so either going stale still
+  leaves the other working.
+
 ## [0.1.4] - 2026-08-22
 
 ### Fixed
@@ -110,7 +121,8 @@ First release.
 - A CI guard asserting the backend imports nothing outside the standard
   library, which is what keeps packaging free of Docker.
 
-[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.5
 [0.1.4]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.4
 [0.1.3]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.3
 [0.1.2]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.2

@@ -1,9 +1,11 @@
 # SteamView — V1 design
 
-Status: **approved and implemented.** §2 was signed off with one
-amendment: the overlay also stays visible on a game's detail page, not
-only on the grid. §2.1 records how that is achieved without a route
-patch.
+Status: **approved and implemented.** §2 was signed off as proposed.
+
+The detail-page question in §6.3 was answered twice: first "show it
+there too", then, after seeing it on device, "hide it there" -- the
+overlay covered Steam's own hero art, playtime stats and Play button.
+The scope check in §2.2 now excludes the detail page.
 
 ---
 
@@ -108,11 +110,13 @@ after a SteamOS update.
 2. sp.document.addEventListener('focusin', handler,
                                 { capture: true, passive: true })
 3. handler(e):
-     a. scope check — is e.target inside any of
-           `.${gamepadLibraryClasses.GamepadLibrary}`            (grid)
-           `.${basicAppDetailsSectionStylerClasses.AppDetailsRoot}` (detail page)
-           `.${appDetailsClasses.Container}`                     (detail page)
-        no  → ignore (the store, the QAM, a context menu, …)
+     a. scope check
+          - on a game's detail page? → ignore. Two independent signals:
+              `.${basicAppDetailsSectionStylerClasses.AppDetailsRoot}`
+              `.${appDetailsClasses.Container}`
+              location.pathname contains `/library/app/`
+          - inside `.${gamepadLibraryClasses.GamepadLibrary}`? → continue
+          - anything else (the store, the QAM, a context menu) → ignore
      b. fiber = getReactInstance(e.target)            // verified export
      c. walk fiber.return upward, at most 30 levels, for the first
         node whose memoizedProps carries an app identity:
@@ -139,13 +143,20 @@ classes, the shortcut app-type value. `focus.ts` next to it holds the
 listener wiring and the failure policy. Two files, and only one of them
 contains anything Valve can rename.
 
-**The detail page needs no separate mechanism.** Steam's app page
-renders ancestors carrying the same `overview` prop the grid does —
-verifiable in GameThemeMusic's own patch, which searches for exactly
-`props.children.props.overview` there. So the same fiber walk resolves an
-app from a focused Play button as from a focused grid tile, and the only
-change required was widening the scope check above. No route patch, no
-route params, no second code path.
+**Excluding the detail page needs no separate mechanism either.** Steam's
+app page renders ancestors carrying the same `overview` prop the grid
+does — verifiable in GameThemeMusic's own patch, which searches for
+exactly `props.children.props.overview` there. So the fiber walk resolves
+an app just as happily from a focused Play button as from a grid tile,
+and whether the preview appears is purely a question of the scope check
+above. Showing it there, and later hiding it, were both one-line changes
+to that check. No route patch, no route params, no second code path.
+
+The detail-page test carries two independent signals — the container
+classes and the route — because either can go stale alone: class names
+are minified per build, and the route only helps if Steam's router
+writes it to the document location. Either one matching is enough to
+hide the preview.
 
 ### 2.3 Debounce and cancellation
 
@@ -307,6 +318,7 @@ CDNs, and only for the focused game's media.
    proposed.**
 2. **Match threshold 0.82.** Tuned to reject `Portal` → `Portal 2` and
    `GTA V` → `GTA IV`. **Kept at 0.82.**
-3. **Detail page too?** V1 as specified shows the overlay only while a
-   *grid* entry is focused. Opening a game's page hides it. Say the word
-   if you want it to persist there.
+3. **Detail page too?** Answered "yes" at sign-off, then reversed to
+   **no** after on-device review: the overlay covered Steam's own hero
+   art, playtime stats and Play button. **Grid only.** The scope check in
+   §2.2 excludes the detail page.

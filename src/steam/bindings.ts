@@ -64,42 +64,14 @@ const SHORTCUT_APPID_MIN = 2 ** 31;
 // Scoping
 // ---------------------------------------------------------------------
 
-/**
- * CSS selectors for the containers we are willing to react inside: the
- * library grid, and a game's detail page. Anywhere else -- the store,
- * the QAM, a context menu -- is ignored, so the overlay never appears
- * over UI it has no business in.
- *
- * Computed lazily and cached, because `@decky/ui`'s class modules are
- * populated during its own load.
- */
-let cachedScopeSelectors: string[] | null = null;
-
-export function scopeSelectors(): string[] {
-  if (cachedScopeSelectors) return cachedScopeSelectors;
-
-  const classNames = [
-    gamepadLibraryClasses?.GamepadLibrary,
-    basicAppDetailsSectionStylerClasses?.AppDetailsRoot,
-    appDetailsClasses?.Container,
-  ];
-
-  cachedScopeSelectors = classNames
+function toSelectors(classNames: (string | undefined)[]): string[] {
+  return classNames
     .filter((name): name is string => typeof name === "string" && name.length > 0)
     // Steam class values can be space-separated compound names.
     .map((name) => "." + name.trim().split(/\s+/).join("."));
-
-  return cachedScopeSelectors;
 }
 
-/** Whether `element` sits inside the library grid or a game's page. */
-export function isInScope(element: Element | null): boolean {
-  if (!element) return false;
-  const selectors = scopeSelectors();
-  // No selector resolved at all: the class mapper did not find them.
-  // Fail open rather than silently never firing -- the fiber walk still
-  // has to succeed for anything to happen, and that is the real gate.
-  if (selectors.length === 0) return true;
+function matchesAny(element: Element, selectors: string[]): boolean {
   return selectors.some((selector) => {
     try {
       return Boolean(element.closest(selector));
@@ -107,6 +79,66 @@ export function isInScope(element: Element | null): boolean {
       return false;
     }
   });
+}
+
+/**
+ * The library grid -- the only place the preview belongs.
+ *
+ * Computed lazily and cached, because `@decky/ui`'s class modules are
+ * populated during its own load.
+ */
+let cachedGridSelectors: string[] | null = null;
+
+export function scopeSelectors(): string[] {
+  return (cachedGridSelectors ??= toSelectors([gamepadLibraryClasses?.GamepadLibrary]));
+}
+
+/**
+ * A game's detail page, where the preview is explicitly *not* wanted:
+ * Steam already fills that screen with the game's own hero art, stats
+ * and Play button, and the overlay simply covers them.
+ */
+let cachedDetailSelectors: string[] | null = null;
+
+function detailPageSelectors(): string[] {
+  return (cachedDetailSelectors ??= toSelectors([
+    basicAppDetailsSectionStylerClasses?.AppDetailsRoot,
+    appDetailsClasses?.Container,
+  ]));
+}
+
+/** The detail page's route, as a second, class-independent signal. */
+const DETAIL_ROUTE = "/library/app/";
+
+function onDetailRoute(element: Element): boolean {
+  try {
+    return Boolean(element.ownerDocument?.defaultView?.location?.pathname?.includes(DETAIL_ROUTE));
+  } catch {
+    return false;
+  }
+}
+
+/** Whether `element` is on a game's detail page. */
+export function isOnDetailPage(element: Element | null): boolean {
+  if (!element) return false;
+  // Two independent signals, because either can go stale on its own: the
+  // class names are minified per build, and the route only helps if
+  // Steam's router writes it to the document location.
+  return matchesAny(element, detailPageSelectors()) || onDetailRoute(element);
+}
+
+/** Whether `element` sits inside the library grid. */
+export function isInScope(element: Element | null): boolean {
+  if (!element) return false;
+  // The detail page wins: it is excluded even where its markup nests
+  // inside something the grid check would otherwise accept.
+  if (isOnDetailPage(element)) return false;
+  const selectors = scopeSelectors();
+  // No selector resolved at all: the class mapper did not find it. Fail
+  // open rather than silently never firing -- the fiber walk still has
+  // to succeed for anything to happen, and that is the real gate.
+  if (selectors.length === 0) return true;
+  return matchesAny(element, selectors);
 }
 
 // ---------------------------------------------------------------------
