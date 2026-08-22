@@ -59,6 +59,9 @@ export type OverlaySize = "s" | "m" | "l";
 export interface Settings {
   enabled: boolean;
   preview_mode: PreviewMode;
+  /** How long focus must settle before the overlay appears, in any mode. */
+  preview_delay_ms: number;
+  /** Extra delay before the trailer starts, once the overlay is up. */
   autoplay_delay_ms: number;
   muted: boolean;
   loop: boolean;
@@ -70,6 +73,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
   preview_mode: "trailer",
+  preview_delay_ms: 300,
   autoplay_delay_ms: 600,
   muted: true,
   loop: true,

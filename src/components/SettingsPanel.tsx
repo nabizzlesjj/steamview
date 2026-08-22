@@ -124,6 +124,22 @@ export function SettingsPanel() {
 
         <PanelSectionRow>
           <SliderField
+            label={t("settings.previewDelay")}
+            description={t("settings.previewDelayDescription")}
+            value={settings.preview_delay_ms}
+            min={0}
+            max={3000}
+            step={50}
+            notchTicksVisible={false}
+            showValue={true}
+            valueSuffix=" ms"
+            disabled={loading || !settings.enabled}
+            onChange={(preview_delay_ms) => void updateSettings({ preview_delay_ms })}
+          />
+        </PanelSectionRow>
+
+        <PanelSectionRow>
+          <SliderField
             label={t("settings.autoplayDelay")}
             description={t("settings.autoplayDelayDescription")}
             value={settings.autoplay_delay_ms}

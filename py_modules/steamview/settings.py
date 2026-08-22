@@ -21,9 +21,16 @@ SIZES = ("s", "m", "l")
 AUTOPLAY_DELAY_MIN = 0
 AUTOPLAY_DELAY_MAX = 5000
 
+#: How long focus must settle before the overlay appears at all. Applies
+#: in every preview mode, unlike the autoplay delay which only gates
+#: video. Zero is allowed but fetches more while scrolling.
+PREVIEW_DELAY_MIN = 0
+PREVIEW_DELAY_MAX = 3000
+
 DEFAULTS: dict[str, Any] = {
     "enabled": True,
     "preview_mode": "trailer",
+    "preview_delay_ms": 300,
     "autoplay_delay_ms": 600,
     "muted": True,
     "loop": True,
@@ -71,6 +78,12 @@ def validate(raw: Any) -> dict[str, Any]:
     return {
         "enabled": _as_bool(source.get("enabled"), DEFAULTS["enabled"]),
         "preview_mode": _as_choice(source.get("preview_mode"), PREVIEW_MODES, DEFAULTS["preview_mode"]),
+        "preview_delay_ms": _as_int(
+            source.get("preview_delay_ms"),
+            PREVIEW_DELAY_MIN,
+            PREVIEW_DELAY_MAX,
+            DEFAULTS["preview_delay_ms"],
+        ),
         "autoplay_delay_ms": _as_int(
             source.get("autoplay_delay_ms"),
             AUTOPLAY_DELAY_MIN,

@@ -18,6 +18,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { findSP } from "@decky/ui";
 
 import { getMediaFor, prefetch as prefetchEntries } from "../api";
 import { startFocusTracking } from "../steam/focus";
@@ -27,15 +30,11 @@ import { entryKey } from "../types";
 import { ScreenshotReel } from "./ScreenshotReel";
 import { TrailerPlayer } from "./TrailerPlayer";
 
-/**
- * How long focus must settle before we ask the backend for anything.
- * Inside the 250-400ms band that keeps a fast scroll from firing a
- * request per frame.
- */
-const FOCUS_DEBOUNCE_MS = 300;
-
 /** Extra settle time before warming neighbours, which is never urgent. */
 const PREFETCH_DELAY_MS = 1_200;
+
+/** Element id of the portal host, so a reload cannot leave two behind. */
+const HOST_ID = "steamview-overlay-root";
 
 type Stage = "trailer" | "screenshots" | "hero";
 
@@ -54,6 +53,45 @@ export function PreviewOverlay() {
   const requestToken = useRef(0);
 
   const active = settings.enabled && settings.preview_mode !== "off" && focus.ok;
+
+  // --- portal host ----------------------------------------------------
+  //
+  // `position: fixed` resolves against the nearest ancestor carrying a
+  // transform, and Steam's content area is transformed for its page
+  // transitions. Rendered where Decky mounts us, the card was therefore
+  // positioned inside -- and clipped by -- that region, which is why the
+  // info panel was cut off at the footer bar rather than sitting above
+  // it. Portalling to the SP window's body escapes that container so
+  // "fixed" means the viewport again.
+
+  const [host, setHost] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    let element: HTMLElement | null = null;
+    try {
+      const doc = findSP()?.document;
+      if (!doc?.body) return;
+      doc.getElementById(HOST_ID)?.remove();
+      element = doc.createElement("div");
+      element.id = HOST_ID;
+      Object.assign(element.style, {
+        position: "fixed",
+        inset: "0",
+        pointerEvents: "none",
+        zIndex: "7000",
+      });
+      doc.body.appendChild(element);
+      setHost(element);
+    } catch (error) {
+      // Falling back to in-place rendering keeps the preview working,
+      // just subject to whatever container Decky mounted us in.
+      console.warn("[SteamView] could not create the overlay host:", error);
+    }
+    return () => {
+      element?.remove();
+      setHost(null);
+    };
+  }, []);
 
   // --- focus tracking -------------------------------------------------
 
@@ -78,11 +116,11 @@ export function PreviewOverlay() {
       setSettled(null);
       return;
     }
-    const timer = setTimeout(() => setSettled(entry), FOCUS_DEBOUNCE_MS);
+    const timer = setTimeout(() => setSettled(entry), settings.preview_delay_ms);
     return () => clearTimeout(timer);
     // Keyed on identity, so re-reporting the same game does not restart
     // the timer and stall the preview during continuous input.
-  }, [focusedKey, entry]);
+  }, [focusedKey, entry, settings.preview_delay_ms]);
 
   // --- media resolution ----------------------------------------------
 
@@ -151,8 +189,8 @@ export function PreviewOverlay() {
   // still gets a labelled preview rather than an anonymous video.
   const hasInfo = Boolean(media.title || media.genres.length > 0 || media.short_description);
 
-  return (
-    <div style={containerStyle(settings.position, settings.size)} aria-hidden="true">
+  const card = (
+    <div style={containerStyle(settings.position, settings.size, Boolean(host))} aria-hidden="true">
       <style>{KEYFRAMES}</style>
       <div style={CARD_STYLE}>
         <div style={MEDIA_STYLE}>
@@ -192,6 +230,8 @@ export function PreviewOverlay() {
       </div>
     </div>
   );
+
+  return host ? createPortal(card, host) : card;
 }
 
 // ---------------------------------------------------------------------
@@ -206,15 +246,33 @@ const SIZE_SCALE: Record<OverlaySize, number> = { s: 0.85, m: 1, l: 1.15 };
 
 const EDGE_MARGIN = 20;
 
-function containerStyle(position: OverlayPosition, size: OverlaySize): React.CSSProperties {
+/**
+ * Vertical inset. Larger than the horizontal one because Steam owns both
+ * horizontal edges of the library: the collection tabs across the top and
+ * the button-hint bar along the bottom. Escaping the content region (see
+ * the portal host above) means the card would otherwise sit on top of
+ * them.
+ */
+const VERTICAL_MARGIN = 64;
+
+function containerStyle(
+  position: OverlayPosition,
+  size: OverlaySize,
+  portalled: boolean,
+): React.CSSProperties {
   const width = SIZE_WIDTHS[size] ?? SIZE_WIDTHS.m;
   const [vertical, horizontal] = position.split("-") as ["top" | "bottom", "left" | "right"];
 
   return {
-    position: "fixed",
-    [vertical]: EDGE_MARGIN,
+    // Inside the portal host (itself fixed and filling the viewport)
+    // absolute is enough, and is immune to any transform further up.
+    position: portalled ? "absolute" : "fixed",
+    [vertical]: VERTICAL_MARGIN,
     [horizontal]: EDGE_MARGIN,
     width,
+    // Insurance: the card can never grow past the viewport, whatever it
+    // ends up being measured against.
+    maxHeight: `calc(100% - ${VERTICAL_MARGIN * 2}px)`,
     // Height is left to content: the media keeps its 16:9 ratio and the
     // info panel takes whatever it needs, so a game with no blurb gets a
     // shorter card instead of a gap.
@@ -226,6 +284,9 @@ function containerStyle(position: OverlayPosition, size: OverlaySize): React.CSS
 }
 
 const CARD_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  maxHeight: "100%",
   overflow: "hidden",
   borderRadius: 8,
   // A hairline light border reads as a deliberate frame against both
@@ -238,6 +299,9 @@ const CARD_STYLE: React.CSSProperties = {
 const MEDIA_STYLE: React.CSSProperties = {
   position: "relative",
   width: "100%",
+  // If space ever runs short the picture gives way before the text does.
+  minHeight: 0,
+  flexShrink: 1,
   // Every Steam trailer, screenshot and header image is already 16:9.
   aspectRatio: "16 / 9",
   overflow: "hidden",
@@ -253,6 +317,8 @@ const FILL_STYLE: React.CSSProperties = {
 
 function infoStyle(scale: number): React.CSSProperties {
   return {
+    // Never squeezed: the title and blurb are the point of the panel.
+    flexShrink: 0,
     padding: `${Math.round(9 * scale)}px ${Math.round(11 * scale)}px ${Math.round(10 * scale)}px`,
     borderTop: "1px solid rgba(255, 255, 255, 0.10)",
     display: "flex",

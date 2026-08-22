@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-08-22
+
+### Fixed
+
+- **The bottom of the info panel was cut off.** `position: fixed`
+  resolves against the nearest ancestor carrying a transform, and
+  Steam's content region is transformed for its page transitions, so the
+  card was being positioned inside -- and clipped by -- that region
+  rather than the viewport. The overlay now renders into its own host
+  appended to the window body, which puts it back on the viewport. It
+  also keeps clear of the collection tabs and the button-hint bar, which
+  it would otherwise have covered once it escaped.
+
+### Added
+
+- **Preview delay** setting: how long a game must stay highlighted
+  before the preview appears. Applies in every mode, so screenshots-only
+  is now adjustable too; previously the only delay control gated video
+  and was greyed out unless trailers were on.
+
+### Changed
+
+- Autoplay delay is now explicitly the *extra* wait before the trailer
+  starts once the preview is up, rather than the only timing control.
+
 ## [0.1.2] - 2026-08-22
 
 ### Added
@@ -70,7 +95,8 @@ First release.
 - A CI guard asserting the backend imports nothing outside the standard
   library, which is what keeps packaging free of Docker.
 
-[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.3
 [0.1.2]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.2
 [0.1.1]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.0

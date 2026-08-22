@@ -122,3 +122,36 @@ class TestStore:
         store = SettingsStore(str(tmp_path))
         store.update({"size": "l"})
         assert not any(name.endswith(".tmp") for name in os.listdir(tmp_path))
+
+
+class TestPreviewDelay:
+    """Separate from the autoplay delay: this one gates the overlay
+    appearing at all, so it applies in screenshots-only mode too."""
+
+    def test_it_has_a_default(self):
+        assert DEFAULTS["preview_delay_ms"] == 300
+
+    @pytest.mark.parametrize(("raw", "expected"), [(-100, 0), (99999, 3000), (0, 0), (1500, 1500), ("800", 800)])
+    def test_it_is_clamped(self, raw, expected):
+        assert validate({"preview_delay_ms": raw})["preview_delay_ms"] == expected
+
+    @pytest.mark.parametrize("raw", ["soon", None, {}, True, []])
+    def test_an_uninterpretable_value_falls_back(self, raw):
+        assert validate({"preview_delay_ms": raw})["preview_delay_ms"] == DEFAULTS["preview_delay_ms"]
+
+    def test_it_is_independent_of_the_autoplay_delay(self):
+        result = validate({"preview_delay_ms": 0, "autoplay_delay_ms": 5000})
+        assert result["preview_delay_ms"] == 0
+        assert result["autoplay_delay_ms"] == 5000
+
+    def test_it_persists(self, tmp_path):
+        SettingsStore(str(tmp_path)).update({"preview_delay_ms": 1200})
+        assert SettingsStore(str(tmp_path)).load()["preview_delay_ms"] == 1200
+
+    def test_an_older_settings_file_without_it_gets_the_default(self, tmp_path):
+        store = SettingsStore(str(tmp_path))
+        with open(store.path, "w", encoding="utf-8") as handle:
+            json.dump({"enabled": True, "preview_mode": "trailer", "size": "l"}, handle)
+        loaded = store.load()
+        assert loaded["preview_delay_ms"] == DEFAULTS["preview_delay_ms"]
+        assert loaded["size"] == "l"

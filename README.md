@@ -154,7 +154,8 @@ persist across restarts.
 | --- | --- | --- |
 | **Enabled** | On | Master switch. Off removes the overlay entirely. |
 | **Preview mode** | Trailer + screenshots | `Trailer + screenshots`, `Screenshots only`, or `Off`. |
-| **Autoplay delay** | 600 ms | How long a game must stay highlighted before video starts. Raise it if scrolling feels busy. |
+| **Preview delay** | 300 ms | How long a game must stay highlighted before the preview appears. Applies in every mode. Lower values fetch more while scrolling. |
+| **Autoplay delay** | 600 ms | Extra wait before the trailer starts, once the preview is showing. Trailer mode only. |
 | **Muted** | On | Trailer audio. Leaving this on is strongly recommended — Steam's own UI sounds keep playing underneath. |
 | **Loop** | On | Repeat the trailer while the game stays highlighted. |
 | **Overlay position** | Bottom right | Which corner the preview sits in. |
