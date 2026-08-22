@@ -22,6 +22,8 @@ change, no broken preview.
 
 from __future__ import annotations
 
+import html
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Sequence
 
@@ -40,6 +42,17 @@ MICROTRAILER_PATH = "/steam/apps/{movie_id}/microtrailer.webm"
 
 #: More than this and the reel is longer than anyone will ever watch.
 MAX_SCREENSHOTS = 12
+
+#: The overlay clamps the blurb to two lines in CSS, which adapts to the
+#: chosen overlay size. This cap just keeps the payload sane.
+MAX_DESCRIPTION_CHARS = 300
+
+#: Steam tags most games with three or four genres; beyond three they
+#: stop being informative and start wrapping.
+MAX_GENRES = 3
+
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_WHITESPACE_RE = re.compile(r"\s+")
 
 SOURCE_APPDETAILS = "appdetails"
 SOURCE_NAME_MATCH = "name-match"
@@ -61,6 +74,8 @@ class MediaResult:
     trailer_thumbnail: str | None = None
     screenshot_urls: list[str] = field(default_factory=list)
     hero_url: str | None = None
+    short_description: str | None = None
+    genres: list[str] = field(default_factory=list)
     note: str | None = None
 
     @property
@@ -79,6 +94,8 @@ class MediaResult:
             "trailer_thumbnail": self.trailer_thumbnail,
             "screenshot_urls": list(self.screenshot_urls),
             "hero_url": self.hero_url,
+            "short_description": self.short_description,
+            "genres": list(self.genres),
             "note": self.note,
         }
 
@@ -100,6 +117,10 @@ class MediaResult:
             if isinstance(screenshots, list)
             else [],
             hero_url=raw.get("hero_url") or None,
+            short_description=raw.get("short_description") or None,
+            genres=[str(g) for g in raw.get("genres") or [] if isinstance(g, str)]
+            if isinstance(raw.get("genres"), list)
+            else [],
             note=raw.get("note") or None,
         )
 
@@ -130,6 +151,53 @@ def microtrailer_candidates(movie_id: Any) -> list[str]:
         return []
     path = MICROTRAILER_PATH.format(movie_id=identifier)
     return [host + path for host in MICROTRAILER_HOSTS]
+
+
+def clean_description(raw: Any, limit: int = MAX_DESCRIPTION_CHARS) -> str | None:
+    """Flatten Steam's store blurb into plain text.
+
+    ``short_description`` is authored for a web page, so it arrives with
+    markup (``<br>``, ``<strong>``) and HTML entities. The overlay renders
+    it as text, so both have to go -- otherwise the user reads a literal
+    "&quot;" on their TV.
+
+    Truncation lands on a word boundary so the ellipsis does not cut a
+    word in half. The overlay clamps to two lines anyway; this is just a
+    payload cap.
+    """
+    if not isinstance(raw, str):
+        return None
+    text = _HTML_TAG_RE.sub(" ", raw)
+    text = html.unescape(text)
+    text = _WHITESPACE_RE.sub(" ", text).strip()
+    if not text:
+        return None
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    boundary = cut.rfind(" ")
+    if boundary > limit * 0.6:
+        cut = cut[:boundary]
+    return cut.rstrip(" .,;:-\u2013\u2014") + "\u2026"
+
+
+def extract_genres(payload: Any, limit: int = MAX_GENRES) -> list[str]:
+    """Genre names from an appdetails payload, in Steam's own order."""
+    genres = payload.get("genres") if isinstance(payload, dict) else None
+    if not isinstance(genres, list):
+        return []
+    names: list[str] = []
+    for entry in genres:
+        if not isinstance(entry, dict):
+            continue
+        description = entry.get("description")
+        if isinstance(description, str) and description.strip():
+            name = description.strip()
+            if name not in names:
+                names.append(name)
+        if len(names) >= limit:
+            break
+    return names
 
 
 def _pick_movie(movies: Any) -> dict[str, Any] | None:
@@ -231,6 +299,8 @@ def build_from_appdetails(
         trailer_thumbnail=https(movie.get("thumbnail")) if isinstance(movie, dict) else None,
         screenshot_urls=extract_screenshots(data),
         hero_url=https(data.get("header_image")) or fallback_hero,
+        short_description=clean_description(data.get("short_description")),
+        genres=extract_genres(data),
     )
 
 

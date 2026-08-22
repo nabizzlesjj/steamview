@@ -45,6 +45,9 @@ export interface MediaResult {
   trailer_thumbnail: string | null;
   screenshot_urls: string[];
   hero_url: string | null;
+  /** Steam's store blurb, already stripped of markup by the backend. */
+  short_description: string | null;
+  genres: string[];
   note: string | null;
 }
 

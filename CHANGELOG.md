@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-08-22
+
+### Added
+
+- The preview is now a bordered card with an info panel under the media,
+  showing the game's title, its genres, and the first two lines of the
+  Steam store description. Every row is optional and the panel collapses
+  to fit, so a non-Steam shortcut with no store match gets a labelled
+  preview rather than an anonymous video.
+- Type and padding scale with the overlay size setting, so Small stays
+  legible rather than just smaller.
+
+### Changed
+
+- The title moved out of the gradient strip over the media and into the
+  info panel, where it no longer covers the picture.
+
 ## [0.1.1] - 2026-08-22
 
 ### Fixed
@@ -53,6 +70,7 @@ First release.
 - A CI guard asserting the backend imports nothing outside the standard
   library, which is what keeps packaging free of Docker.
 
-[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.2
 [0.1.1]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.0

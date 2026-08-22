@@ -10,6 +10,11 @@
  * art, then nothing. Each stage can demote itself (a video that will not
  * play, images that will not load), so the overlay is never a blank box
  * and never a broken one.
+ *
+ * Beneath the media sits an info panel with the game's title, genres and
+ * store blurb. Every row of it is optional -- a non-Steam shortcut with
+ * no store match has a title and nothing else -- so the panel collapses
+ * to fit rather than reserving empty space.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -141,30 +146,49 @@ export function PreviewOverlay() {
 
   if (!active || !media || !stage) return null;
 
+  const scale = SIZE_SCALE[settings.size] ?? SIZE_SCALE.m;
+  // The title alone is worth a panel; a shortcut with no store match
+  // still gets a labelled preview rather than an anonymous video.
+  const hasInfo = Boolean(media.title || media.genres.length > 0 || media.short_description);
+
   return (
     <div style={containerStyle(settings.position, settings.size)} aria-hidden="true">
       <style>{KEYFRAMES}</style>
-      <div style={FRAME_STYLE}>
-        {stage === "trailer" && media.trailer_url ? (
-          <TrailerPlayer
-            url={media.trailer_url}
-            poster={media.trailer_thumbnail ?? media.hero_url}
-            muted={settings.muted}
-            loop={settings.loop}
-            delayMs={settings.autoplay_delay_ms}
-            onUnplayable={demote}
-          />
-        ) : null}
+      <div style={CARD_STYLE}>
+        <div style={MEDIA_STYLE}>
+          {stage === "trailer" && media.trailer_url ? (
+            <TrailerPlayer
+              url={media.trailer_url}
+              poster={media.trailer_thumbnail ?? media.hero_url}
+              muted={settings.muted}
+              loop={settings.loop}
+              delayMs={settings.autoplay_delay_ms}
+              onUnplayable={demote}
+            />
+          ) : null}
 
-        {stage === "screenshots" ? (
-          <ScreenshotReel urls={media.screenshot_urls} onUnusable={demote} />
-        ) : null}
+          {stage === "screenshots" ? (
+            <ScreenshotReel urls={media.screenshot_urls} onUnusable={demote} />
+          ) : null}
 
-        {stage === "hero" && media.hero_url ? (
-          <img src={media.hero_url} alt="" style={HERO_STYLE} draggable={false} onError={demote} />
-        ) : null}
+          {stage === "hero" && media.hero_url ? (
+            <img src={media.hero_url} alt="" style={FILL_STYLE} draggable={false} onError={demote} />
+          ) : null}
+        </div>
 
-        {media.title ? <div style={CAPTION_STYLE}>{media.title}</div> : null}
+        {hasInfo ? (
+          <div style={infoStyle(scale)}>
+            {media.title ? <div style={titleStyle(scale)}>{media.title}</div> : null}
+
+            {media.genres.length > 0 ? (
+              <div style={genreStyle(scale)}>{media.genres.join(" · ")}</div>
+            ) : null}
+
+            {media.short_description ? (
+              <div style={descriptionStyle(scale)}>{media.short_description}</div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -177,6 +201,9 @@ export function PreviewOverlay() {
 /** Overlay widths, in CSS pixels on the Deck's 1280x800 panel. */
 const SIZE_WIDTHS: Record<OverlaySize, number> = { s: 280, m: 380, l: 480 };
 
+/** Type and padding scale with the overlay so Small stays readable. */
+const SIZE_SCALE: Record<OverlaySize, number> = { s: 0.85, m: 1, l: 1.15 };
+
 const EDGE_MARGIN = 20;
 
 function containerStyle(position: OverlayPosition, size: OverlaySize): React.CSSProperties {
@@ -188,9 +215,9 @@ function containerStyle(position: OverlayPosition, size: OverlaySize): React.CSS
     [vertical]: EDGE_MARGIN,
     [horizontal]: EDGE_MARGIN,
     width,
-    // 16:9, which every Steam trailer and screenshot already is.
-    height: Math.round((width * 9) / 16),
-    // Above Steam's library chrome, below its modals and the QAM.
+    // Height is left to content: the media keeps its 16:9 ratio and the
+    // info panel takes whatever it needs, so a game with no blurb gets a
+    // shorter card instead of a gap.
     zIndex: 7000,
     // The overlay is decoration. It must never eat gamepad input.
     pointerEvents: "none",
@@ -198,38 +225,81 @@ function containerStyle(position: OverlayPosition, size: OverlaySize): React.CSS
   };
 }
 
-const FRAME_STYLE: React.CSSProperties = {
-  position: "relative",
-  width: "100%",
-  height: "100%",
+const CARD_STYLE: React.CSSProperties = {
   overflow: "hidden",
-  borderRadius: 6,
-  background: "rgba(0, 0, 0, 0.85)",
-  boxShadow: "0 6px 24px rgba(0, 0, 0, 0.6)",
+  borderRadius: 8,
+  // A hairline light border reads as a deliberate frame against both
+  // Steam's dark chrome and a bright capsule behind it.
+  border: "1px solid rgba(255, 255, 255, 0.18)",
+  background: "rgba(14, 18, 24, 0.94)",
+  boxShadow: "0 8px 28px rgba(0, 0, 0, 0.65)",
 };
 
-const HERO_STYLE: React.CSSProperties = {
+const MEDIA_STYLE: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  // Every Steam trailer, screenshot and header image is already 16:9.
+  aspectRatio: "16 / 9",
+  overflow: "hidden",
+  background: "#000000",
+};
+
+const FILL_STYLE: React.CSSProperties = {
   width: "100%",
   height: "100%",
   objectFit: "cover",
   display: "block",
 };
 
-const CAPTION_STYLE: React.CSSProperties = {
-  position: "absolute",
-  left: 0,
-  right: 0,
-  bottom: 0,
-  padding: "14px 10px 6px",
-  background: "linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 500,
-  lineHeight: 1.2,
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
+function infoStyle(scale: number): React.CSSProperties {
+  return {
+    padding: `${Math.round(9 * scale)}px ${Math.round(11 * scale)}px ${Math.round(10 * scale)}px`,
+    borderTop: "1px solid rgba(255, 255, 255, 0.10)",
+    display: "flex",
+    flexDirection: "column",
+    gap: Math.round(3 * scale),
+  };
+}
+
+function titleStyle(scale: number): React.CSSProperties {
+  return {
+    color: "#ffffff",
+    fontSize: Math.round(15 * scale),
+    fontWeight: 700,
+    lineHeight: 1.25,
+    // One line: a long title should not push the blurb off the card.
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
+}
+
+function genreStyle(scale: number): React.CSSProperties {
+  return {
+    color: "#8ba6c1",
+    fontSize: Math.round(11 * scale),
+    fontWeight: 600,
+    letterSpacing: 0.3,
+    lineHeight: 1.3,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
+}
+
+function descriptionStyle(scale: number): React.CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: Math.round(12 * scale),
+    lineHeight: 1.4,
+    // Two lines, clamped. The backend caps the payload; this decides
+    // what is actually shown, so it adapts to the chosen overlay size.
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  };
+}
 
 const KEYFRAMES = `
 @keyframes steamview-fade-in {

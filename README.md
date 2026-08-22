@@ -31,6 +31,11 @@ media for the highlighted entry and plays it in a small fixed overlay:
 2. **Screenshots** — a slow carousel, when there is no usable video.
 3. **Hero art** — the capsule or hero image the client already has.
 
+Under the media sits an info panel with the game's **title**, its
+**genres**, and the first two lines of the **store description**. Each
+row is optional and the panel collapses to fit, so a shortcut with no
+store match still gets a labelled preview instead of an anonymous video.
+
 It never shows a blank box, and a failure at any step falls through to
 the next.
 

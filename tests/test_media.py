@@ -236,6 +236,8 @@ class TestSerialisation:
             "trailer_thumbnail",
             "screenshot_urls",
             "hero_url",
+            "short_description",
+            "genres",
             "note",
         }
 
@@ -249,3 +251,105 @@ class TestSerialisation:
         )
         assert restored.screenshot_urls == ["https://a.jpg"]
         assert restored.resolved_appid is None
+
+
+class TestCleanDescription:
+    """Steam's blurb is authored for a web page, so it arrives with markup
+    and entities. The overlay renders text, so both have to go."""
+
+    def test_html_entities_are_decoded(self):
+        assert media.clean_description("Supergiant&#39;s &quot;best&quot; game") == "Supergiant's \"best\" game"
+
+    def test_tags_are_stripped(self):
+        assert media.clean_description("A <strong>great</strong> game") == "A great game"
+
+    def test_line_breaks_become_spaces(self):
+        assert media.clean_description("One line.<br>Another line.") == "One line. Another line."
+
+    def test_whitespace_is_collapsed(self):
+        assert media.clean_description("  lots   of\n\nspace  ") == "lots of space"
+
+    def test_short_text_is_untouched(self):
+        assert media.clean_description("A short blurb.") == "A short blurb."
+
+    def test_long_text_is_truncated_with_an_ellipsis(self):
+        result = media.clean_description("word " * 200)
+        assert len(result) <= media.MAX_DESCRIPTION_CHARS + 1
+        assert result.endswith("…")
+
+    def test_truncation_lands_on_a_word_boundary(self):
+        result = media.clean_description("alpha bravo charlie delta echo foxtrot golf hotel", limit=20)
+        assert result == "alpha bravo charlie…"
+
+    def test_trailing_punctuation_is_trimmed_before_the_ellipsis(self):
+        assert media.clean_description("alpha bravo, charlie delta", limit=14) == "alpha bravo…"
+
+    def test_a_limit_longer_than_the_text_does_nothing(self):
+        assert media.clean_description("short", limit=500) == "short"
+
+    @pytest.mark.parametrize("raw", [None, "", "   ", 42, {}, [], "<br><br>", "<p></p>"])
+    def test_unusable_input_returns_none(self, raw):
+        assert media.clean_description(raw) is None
+
+
+class TestExtractGenres:
+    def test_genre_names_are_extracted_in_order(self):
+        payload = {"genres": [{"id": "1", "description": "Action"}, {"id": "2", "description": "Indie"}]}
+        assert media.extract_genres(payload) == ["Action", "Indie"]
+
+    def test_the_list_is_capped(self):
+        payload = {"genres": [{"description": f"G{i}"} for i in range(10)]}
+        assert len(media.extract_genres(payload)) == media.MAX_GENRES
+
+    def test_duplicates_are_dropped(self):
+        payload = {"genres": [{"description": "Action"}, {"description": "Action"}, {"description": "Indie"}]}
+        assert media.extract_genres(payload) == ["Action", "Indie"]
+
+    def test_names_are_trimmed(self):
+        assert media.extract_genres({"genres": [{"description": "  Action  "}]}) == ["Action"]
+
+    @pytest.mark.parametrize(
+        "payload",
+        [None, {}, "junk", 42, {"genres": None}, {"genres": "junk"}, {"genres": [None, 1, "x"]}, {"genres": [{}]}],
+    )
+    def test_malformed_payloads_yield_nothing(self, payload):
+        assert media.extract_genres(payload) == []
+
+
+class TestInfoPanelFields:
+    def test_appdetails_populates_description_and_genres(self, appdetails_payload):
+        payload = {
+            **appdetails_payload,
+            "short_description": "Hades is a <strong>rogue-like</strong> dungeon crawler.",
+            "genres": [{"description": "Action"}, {"description": "Indie"}],
+        }
+        result = build_from_appdetails(payload, key="k", kind="steam", resolved_appid=1)
+        assert result.short_description == "Hades is a rogue-like dungeon crawler."
+        assert result.genres == ["Action", "Indie"]
+
+    def test_a_payload_without_them_is_still_valid(self, appdetails_payload):
+        result = build_from_appdetails(appdetails_payload, key="k", kind="steam", resolved_appid=1)
+        assert result.short_description is None
+        assert result.genres == []
+
+    def test_art_fallback_has_no_description_or_genres(self):
+        result = build_from_art(key="k", kind="shortcut", title="Game", hero_url="https://cdn/h.jpg")
+        assert result.short_description is None
+        assert result.genres == []
+
+    def test_the_new_fields_survive_a_round_trip(self):
+        original = build_from_appdetails(
+            {"name": "Hades", "short_description": "A blurb.", "genres": [{"description": "Action"}]},
+            key="k",
+            kind="steam",
+            resolved_appid=1,
+        )
+        assert MediaResult.from_dict(original.to_dict()).to_dict() == original.to_dict()
+
+    def test_from_dict_sanitises_corrupt_genres(self):
+        restored = MediaResult.from_dict({"key": "k", "genres": ["Action", None, 7], "short_description": ""})
+        assert restored.genres == ["Action"]
+        assert restored.short_description is None
+
+    def test_to_dict_contains_the_new_keys(self):
+        assert {"short_description", "genres"} <= set(MediaResult(key="k", kind="steam").to_dict())
