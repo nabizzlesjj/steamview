@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OWNER/steamview.git"
+    "url": "git+https://github.com/nabizzlesjj/steamview.git"
   },
   "keywords": [
     "decky",
@@ -32,9 +32,9 @@
   "author": "SteamView contributors",
   "license": "BSD-3-Clause",
   "bugs": {
-    "url": "https://github.com/OWNER/steamview/issues"
+    "url": "https://github.com/nabizzlesjj/steamview/issues"
   },
-  "homepage": "https://github.com/OWNER/steamview#readme",
+  "homepage": "https://github.com/nabizzlesjj/steamview#readme",
   "devDependencies": {
     "@decky/rollup": "^1.0.2",
     "@decky/ui": "^4.12.0",

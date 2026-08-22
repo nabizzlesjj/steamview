@@ -59,7 +59,7 @@ trailer is worse than showing none.
 ### From a release ZIP
 
 1. Download the latest `SteamView-vX.Y.Z.zip` from
-   [Releases](https://github.com/OWNER/steamview/releases).
+   [Releases](https://github.com/nabizzlesjj/steamview/releases).
 2. On your Deck, open the Decky menu (the plug icon in the Quick Access
    Menu) → the **gear** icon → **Settings**.
 3. Turn on **Developer Mode**.

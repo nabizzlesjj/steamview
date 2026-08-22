@@ -23,7 +23,7 @@ from .compat import logger
 
 #: A plain desktop UA. Steam's public endpoints reject some default
 #: urllib agents, and this keeps us indistinguishable from a browser hit.
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) SteamView/0.1 (+https://github.com/OWNER/steamview)"
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) SteamView/0.1 (+https://github.com/nabizzlesjj/steamview)"
 
 DEFAULT_TIMEOUT = 12.0
 

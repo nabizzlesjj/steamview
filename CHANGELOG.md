@@ -4,7 +4,9 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0] - 2026-08-22
+
+First release.
 
 ### Added
 
@@ -31,4 +33,5 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 - A CI guard asserting the backend imports nothing outside the standard
   library, which is what keeps packaging free of Docker.
 
-[Unreleased]: https://github.com/OWNER/steamview/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.0
