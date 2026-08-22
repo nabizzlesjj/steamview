@@ -262,6 +262,44 @@ custom themes or animations.
 
 ---
 
+## Cutting a release
+
+Releases are built by CI and attached to a GitHub Release, so the ZIP
+users download is always a clean, verified build.
+
+**Before tagging**, bump the version and record the change:
+
+1. Set `"version"` in `package.json` (this names the ZIP).
+2. Add a dated section to [CHANGELOG.md](CHANGELOG.md).
+3. Commit and push to `main`.
+
+Then publish, either way:
+
+**From the Actions tab** (no local clone needed)
+
+1. Go to **Actions → Release → Run workflow**.
+2. Enter the tag, e.g. `v0.1.0`.
+3. Run it. The workflow creates the tag, builds, and publishes the
+   release with the ZIP attached.
+
+**From a terminal**
+
+```bash
+git checkout main && git pull
+git tag -a v0.1.0 -m "SteamView v0.1.0"
+git push origin v0.1.0
+```
+
+Either path runs the same checks (typecheck, lint, pytest) before
+building, and refuses to publish if the tag does not match
+`package.json`'s version — so a release can never ship a ZIP whose
+filename disagrees with its tag.
+
+The published asset is `SteamView-vX.Y.Z.zip`, which is the file to
+install on a Deck.
+
+---
+
 ## License
 
 BSD-3-Clause. See [LICENSE](LICENSE).

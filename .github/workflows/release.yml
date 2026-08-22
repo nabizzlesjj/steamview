@@ -3,11 +3,13 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Lets a release be cut entirely from the Actions tab, with no local
+  # clone and no git CLI. The tag is created as part of publishing.
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to build (for a manual re-run)"
-        required: false
+        description: "Version tag to create and release, e.g. v0.1.0"
+        required: true
 
 permissions:
   contents: write
@@ -35,6 +37,34 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Resolve the release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF#refs/tags/}"
+          fi
+          if ! printf '%s' "$tag" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$tag' is not a semver tag. Use vMAJOR.MINOR.PATCH, e.g. v0.1.0."
+            exit 1
+          fi
+          echo "name=$tag" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag"
+
+      # The ZIP is named from package.json's version, so a tag that
+      # disagrees with it would publish SteamView-v0.1.0.zip under a
+      # v0.2.0 release. Catch that here rather than after it ships.
+      - name: Check the tag matches package.json
+        run: |
+          pkg="v$(python3 -c "import json; print(json.load(open('package.json'))['version'])")"
+          tag="${{ steps.tag.outputs.name }}"
+          if [ "$pkg" != "$tag" ]; then
+            echo "::error::Tag $tag does not match package.json version $pkg."
+            echo "::error::Bump \"version\" in package.json (and add a CHANGELOG entry) first."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -59,10 +89,14 @@ jobs:
           path: out/*.zip
           if-no-files-found: error
 
-      - name: Attach the ZIP to the GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Creates the tag too when it does not already exist, which is what
+      # makes the workflow_dispatch path work without a local clone.
+      - name: Publish the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          name: SteamView ${{ steps.tag.outputs.name }}
           files: out/*.zip
           generate_release_notes: true
           fail_on_unmatched_files: true
