@@ -47,6 +47,22 @@ jobs:
       - name: Verify the bundle was produced
         run: test -s dist/index.js
 
+      # Publish an installable build from every main push. Without this
+      # the only way to get a working ZIP is to cut a tag, and a source
+      # download is not installable (it has no dist/index.js), which is
+      # an easy and confusing trap to fall into.
+      - name: Assemble the plugin ZIP
+        if: github.ref == 'refs/heads/main'
+        run: python3 scripts/package.py --out-dir out
+
+      - name: Upload the installable plugin ZIP
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: SteamView-plugin-zip
+          path: out/*.zip
+          if-no-files-found: error
+
   backend:
     name: Backend (pytest)
     runs-on: ubuntu-latest

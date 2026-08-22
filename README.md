@@ -56,10 +56,28 @@ trailer is worse than showing none.
 
 ## Install
 
+> ### ⚠️ Do not install a source download
+>
+> **Cloning this repo, or using GitHub's green "Code → Download ZIP"
+> button, will NOT give you an installable plugin.** Those contain the
+> source but not `dist/index.js`, which is compiled output and is
+> deliberately not committed.
+>
+> Decky will happily accept such a folder, list "SteamView" in the plugin
+> menu, and then fail with:
+>
+> ```
+> TypeError: Failed to fetch dynamically imported module:
+> http://127.0.0.1:1337/plugins/SteamView/dist/index.js
+> ```
+>
+> Install a **release ZIP** or one you built yourself (both below).
+
 ### From a release ZIP
 
 1. Download the latest `SteamView-vX.Y.Z.zip` from
-   [Releases](https://github.com/nabizzlesjj/steamview/releases).
+   [Releases](https://github.com/nabizzlesjj/steamview/releases) — the
+   file attached to the release, *not* the "Source code" links.
 2. On your Deck, open the Decky menu (the plug icon in the Quick Access
    Menu) → the **gear** icon → **Settings**.
 3. Turn on **Developer Mode**.
@@ -68,12 +86,57 @@ trailer is worse than showing none.
 
 The overlay is on by default. Scroll your library and it should appear.
 
+### Building the ZIP yourself
+
+If there is no release yet, build one:
+
+```bash
+pnpm install
+pnpm run build          # produces dist/index.js
+python3 scripts/package.py --out-dir out
+```
+
+That writes `out/SteamView-vX.Y.Z.zip`, ready to install. The packaging
+script refuses to run when `dist/index.js` is missing, so a ZIP it
+produces is always complete.
+
+`make deploy DECK_HOST=<your-deck-ip>` does the same over SSH, and also
+builds first, so it cannot deploy an incomplete plugin.
+
 ### Requirements
 
 - A Steam Deck (or SteamOS device) running Game Mode
 - Decky Loader installed
 - An internet connection the first time each game is previewed; after
   that its media is cached on disk
+
+---
+
+## Troubleshooting
+
+### `TypeError: Failed to fetch dynamically imported module`
+
+The installed plugin folder is missing `dist/index.js`. This almost
+always means a source clone or GitHub "Download ZIP" was installed
+instead of a built plugin. Decky still reads `plugin.json`, so the plugin
+appears in the menu by name and only fails when its frontend is loaded.
+
+Check on the Deck:
+
+```bash
+ls ~/homebrew/plugins/SteamView/dist/index.js
+```
+
+If that file is absent, uninstall the plugin and install a release ZIP,
+or one built with the steps above.
+
+### The plugin loads but no preview ever appears
+
+Open the QAM panel. If it shows a **"Preview unavailable"** block, the
+focus hook could not attach -- note the reason it gives and open an
+issue. If there is no such block, check that **Enabled** is on and
+**Preview mode** is not *Off*, then work through
+[TESTING.md](TESTING.md).
 
 ---
 

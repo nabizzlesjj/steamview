@@ -23,6 +23,11 @@ because everything else degrades gracefully around them:
 
 ### Install
 
+> **Do not install a git clone or a GitHub "Download ZIP".** Neither
+> contains `dist/index.js` (it is compiled output and is not committed),
+> and Decky will list the plugin and then fail with `TypeError: Failed to
+> fetch dynamically imported module`. Always install a *built* ZIP.
+
 ```
 make package
 ```
