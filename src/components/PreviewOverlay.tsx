@@ -74,9 +74,14 @@ export function PreviewOverlay() {
       doc.getElementById(HOST_ID)?.remove();
       element = doc.createElement("div");
       element.id = HOST_ID;
+      // The host *is* the library pane: inset past Steam's own chrome so
+      // the card is bounded by it rather than by the whole viewport.
       Object.assign(element.style, {
         position: "fixed",
-        inset: "0",
+        top: `${LIBRARY_PANE_TOP}px`,
+        bottom: `${LIBRARY_PANE_BOTTOM}px`,
+        left: "0",
+        right: "0",
         pointerEvents: "none",
         zIndex: "7000",
       });
@@ -247,13 +252,22 @@ const SIZE_SCALE: Record<OverlaySize, number> = { s: 0.85, m: 1, l: 1.15 };
 const EDGE_MARGIN = 20;
 
 /**
- * Vertical inset. Larger than the horizontal one because Steam owns both
- * horizontal edges of the library: the collection tabs across the top and
- * the button-hint bar along the bottom. Escaping the content region (see
- * the portal host above) means the card would otherwise sit on top of
- * them.
+ * Steam's library chrome, in CSS pixels, which bounds the area the
+ * overlay is allowed to cover.
+ *
+ * Note these are *CSS* pixels, not the panel's. Game Mode renders its UI
+ * zoomed: a Deck's 1280x800 screen is roughly an 870x545 CSS viewport.
+ * So the library pane between the two bars is only ~380px tall, which is
+ * why a Large card (377px) has to be clamped rather than merely nudged.
  */
-const VERTICAL_MARGIN = 64;
+const LIBRARY_PANE_TOP = 96; // search field + collection tabs
+const LIBRARY_PANE_BOTTOM = 72; // button-hint bar
+
+/** Gap between the card and the bar it sits against. */
+const PANE_INSET = 8;
+
+/** Only used when the portal host could not be created. */
+const VERTICAL_MARGIN = LIBRARY_PANE_BOTTOM + PANE_INSET;
 
 function containerStyle(
   position: OverlayPosition,
@@ -267,12 +281,16 @@ function containerStyle(
     // Inside the portal host (itself fixed and filling the viewport)
     // absolute is enough, and is immune to any transform further up.
     position: portalled ? "absolute" : "fixed",
-    [vertical]: VERTICAL_MARGIN,
+    // Inside the host the offset is from the pane edge, not the screen.
+    [vertical]: portalled ? PANE_INSET : VERTICAL_MARGIN,
     [horizontal]: EDGE_MARGIN,
     width,
-    // Insurance: the card can never grow past the viewport, whatever it
-    // ends up being measured against.
-    maxHeight: `calc(100% - ${VERTICAL_MARGIN * 2}px)`,
+    // The pane is barely taller than a Large card, so this is a real
+    // constraint rather than insurance: when it binds, the media gives
+    // way (see MEDIA_STYLE) and the text stays intact.
+    maxHeight: portalled ? `calc(100% - ${PANE_INSET * 2}px)` : `calc(100% - ${VERTICAL_MARGIN * 2}px)`,
+    display: "flex",
+    flexDirection: "column",
     // Height is left to content: the media keeps its 16:9 ratio and the
     // info panel takes whatever it needs, so a game with no blurb gets a
     // shorter card instead of a gap.
@@ -286,6 +304,7 @@ function containerStyle(
 const CARD_STYLE: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
+  minHeight: 0,
   maxHeight: "100%",
   overflow: "hidden",
   borderRadius: 8,

@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.4] - 2026-08-22
+
+### Fixed
+
+- **The preview covered Steam's own navigation bars.** The overlay is
+  now bounded by the library pane itself -- its host is inset past the
+  search field and collection tabs at the top and the button-hint bar at
+  the bottom -- rather than by the whole screen, so it can only ever
+  cover the game grid.
+- The card is clamped to the pane height. That is a real constraint, not
+  insurance: Game Mode renders its UI zoomed, so a Deck's 1280x800 panel
+  is roughly an 870x545 CSS viewport, leaving a library pane only ~380px
+  tall against a 377px Large card. When the clamp binds the media gives
+  way and the text stays intact.
+
 ## [0.1.3] - 2026-08-22
 
 ### Fixed
@@ -95,7 +110,8 @@ First release.
 - A CI guard asserting the backend imports nothing outside the standard
   library, which is what keeps packaging free of Docker.
 
-[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.4
 [0.1.3]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.3
 [0.1.2]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.2
 [0.1.1]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.1
