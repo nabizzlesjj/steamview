@@ -20,9 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` here on purpose. pnpm/action-setup errors out if a
+      # version is given in both places, and package.json's
+      # `packageManager` is the better authority: it pins an exact
+      # 9.15.9 rather than a floating 9.x, so CI and a developer's
+      # machine resolve identically.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
