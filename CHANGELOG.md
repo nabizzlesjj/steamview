@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.6] - 2026-08-22
+
+### Added
+
+- `THIRD_PARTY_LICENSES.md`, generated from the installed packages and
+  shipped inside the plugin ZIP. The bundle inlines MIT-licensed code
+  (i18next, react-icons) whose licence requires the notice to travel
+  with it, plus `@decky/api` (LGPL-2.1) and tslib (0BSD). The file also
+  records which dependencies are *not* redistributed, being resolved to
+  globals the Steam client already provides.
+- `make licenses` regenerates it, so the notices cannot drift from the
+  versions actually installed.
+
+### Fixed
+
+- TESTING.md still described the preview persisting on a game's detail
+  page, which stopped being true in 0.1.5.
+
 ## [0.1.5] - 2026-08-22
 
 ### Fixed
@@ -121,7 +139,8 @@ First release.
 - A CI guard asserting the backend imports nothing outside the standard
   library, which is what keeps packaging free of Docker.
 
-[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/nabizzlesjj/steamview/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.6
 [0.1.5]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.5
 [0.1.4]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.4
 [0.1.3]: https://github.com/nabizzlesjj/steamview/releases/tag/v0.1.3

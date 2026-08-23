@@ -27,6 +27,9 @@ REQUIRED_FILES = (
     "package.json",
     "main.py",
     "LICENSE",
+    # MIT requires its notice to travel with the code, and the bundle
+    # inlines MIT-licensed dependencies. Required, not optional.
+    "THIRD_PARTY_LICENSES.md",
     "README.md",
     "dist/index.js",
 )

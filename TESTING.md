@@ -106,9 +106,10 @@ first view, and nothing on subsequent views (it is cached).
 
 ### Now check the detail page
 
-Press **A** to open the game's page. **Expect:** the preview stays
-visible. Press **B** to go back — it stays visible and follows the
-highlight again.
+Press **A** to open the game's page. **Expect:** the preview
+**disappears** — Steam already fills that screen with the game's own
+artwork, playtime and Play button. Press **B** to go back and it returns,
+following the highlight again.
 
 ---
 

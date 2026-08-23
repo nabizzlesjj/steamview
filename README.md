@@ -314,6 +314,11 @@ install on a Deck.
 
 BSD-3-Clause. See [LICENSE](LICENSE).
 
+The plugin ships one bundled JavaScript file which inlines a few
+dependencies; their notices are reproduced in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md), generated from the
+installed packages by `make licenses`.
+
 Built on the
 [Decky plugin template](https://github.com/SteamDeckHomebrew/decky-plugin-template),
 whose original copyright notice is retained in `LICENSE`.

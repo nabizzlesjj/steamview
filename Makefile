@@ -47,6 +47,10 @@ test: ## Run the Python test suite
 check: typecheck lint test ## Everything CI runs
 	python3 scripts/check_stdlib_only.py
 
+.PHONY: licenses
+licenses: ## Regenerate THIRD_PARTY_LICENSES.md from node_modules
+	python3 scripts/generate_third_party_licenses.py
+
 .PHONY: package
 package: build ## Build the installable plugin ZIP into out/
 	python3 scripts/package.py --out-dir out
