@@ -50,22 +50,60 @@ on the shortcut.
 
 ## Install
 
-1. Download **`SteamView-vX.Y.Z.zip`** from
-   [Releases](https://github.com/nabizzlesjj/steamview/releases) — the
-   attached asset, not the "Source code" links.
-2. On your Deck: Quick Access Menu → the **plug** icon → **gear** →
-   **Settings** → turn on **Developer Mode**.
-3. **Developer** tab → **Install Plugin from ZIP File** → pick the ZIP.
+You need [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader)
+already installed. SteamView is not on the Decky store, so it's a manual
+ZIP install — which means getting the file onto the Deck first.
 
-The preview is on by default. Scroll your library and it should appear.
+### 1. Download the ZIP (Desktop Mode)
 
-> A git clone or GitHub's "Download ZIP" will **not** work — neither
-> contains the compiled `dist/index.js`. Use a release asset, or build
-> one yourself (see [Development](#development)).
+Game Mode has no practical way to download a file, so switch over:
 
-**Requirements:** a Steam Deck or SteamOS device in Game Mode, Decky
-Loader, and an internet connection the first time each game is previewed.
-After that its media is cached on disk.
+1. Press **STEAM** → **Power** → **Switch to Desktop**.
+2. Open a browser and go to
+   [Releases](https://github.com/nabizzlesjj/steamview/releases).
+3. Download **`SteamView-vX.Y.Z.zip`** — the attached asset under
+   **Assets**, *not* the "Source code (zip)" link beneath it. It lands in
+   `/home/deck/Downloads`.
+4. Double-click **Return to Gaming Mode** on the desktop.
+
+> The "Source code" links will **not** work. They contain the source but
+> not the compiled `dist/index.js`, so Decky will list the plugin and
+> then fail to load it. Only the `SteamView-vX.Y.Z.zip` asset is
+> installable.
+
+### 2. Install it (Game Mode)
+
+1. Press the **···** (Quick Access) button.
+2. Open the **plug** icon — that's Decky.
+3. Press the **gear** icon at the top of the Decky panel.
+4. Under **General**, turn on **Developer mode**.
+5. A **Developer** tab appears in the left-hand list. Open it.
+6. Under **Third-Party Plugins** → **Install Plugin from ZIP File**,
+   press **Browse**.
+7. Navigate to `/home/deck/Downloads`, select the ZIP, then press
+   **Install**.
+
+### 3. Use it
+
+Press **···** → the **plug** icon. **SteamView** is now in the plugin
+list; open it to reach the settings.
+
+The preview is on by default — go to your library, highlight a game, and
+it should appear within a second.
+
+> **Shortcut worth trying:** the same Developer tab has an **Install
+> Plugin from URL** field. Pasting a release asset's direct download URL
+> there should skip the Desktop Mode trip entirely. I haven't verified
+> it, so the route above is the one I know works.
+
+**Requirements:** a Steam Deck or SteamOS device, Decky Loader, and an
+internet connection the first time each game is previewed. After that its
+media is cached on disk.
+
+### Updating
+
+Same steps — installing a newer ZIP over the top replaces the old
+version. Your settings are kept.
 
 ---
 
@@ -207,10 +245,10 @@ animations.
 ## Troubleshooting
 
 **`TypeError: Failed to fetch dynamically imported module`** — the
-installed folder is missing `dist/index.js`, which almost always means a
-source clone was installed instead of a built plugin. Check with
-`ls ~/homebrew/plugins/SteamView/dist/index.js`; if it's absent,
-reinstall from a release asset.
+installed folder is missing `dist/index.js`, which almost always means
+the "Source code (zip)" link was installed instead of the release asset.
+Check with `ls ~/homebrew/plugins/SteamView/dist/index.js`; if it's
+absent, reinstall using the `SteamView-vX.Y.Z.zip` asset.
 
 **The plugin loads but no preview appears** — open the QAM panel. A
 **"Preview unavailable"** block means the focus hook couldn't attach,

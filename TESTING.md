@@ -32,12 +32,14 @@ because everything else degrades gracefully around them:
 make package
 ```
 
-Copy the resulting `out/SteamView-vX.Y.Z.zip` to the Deck, then in Game Mode:
+Get the resulting `out/SteamView-vX.Y.Z.zip` onto the Deck (Desktop Mode
+download, `scp`, or a USB stick — it needs to land somewhere the file
+picker can reach, e.g. `/home/deck/Downloads`). Then in Game Mode:
 
-1. Quick Access Menu (**...** button) → the **plug** icon → **gear** →
-   **Settings**
-2. Turn on **Developer Mode**
-3. **Developer** tab → **Install Plugin from ZIP File** → pick the ZIP
+1. **···** → the **plug** icon (Decky) → the **gear** icon
+2. **General** → turn on **Developer mode**
+3. The **Developer** tab → **Third-Party Plugins** → **Install Plugin
+   from ZIP File** → **Browse** → pick the ZIP → **Install**
 
 Or, if you have SSH set up:
 
