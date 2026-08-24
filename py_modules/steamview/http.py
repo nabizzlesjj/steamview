@@ -59,10 +59,25 @@ _insecure_opener = urllib.request.build_opener(
     urllib.request.HTTPSHandler(context=_unverified_context()),
 )
 
+#: The unverified fallback is permitted for these hosts and no others.
+#: Nothing in the plugin fetches anything else today, but the downgrade
+#: must not silently travel with any URL a future change introduces.
+_TLS_FALLBACK_HOST = "store.steampowered.com"
+_TLS_FALLBACK_SUFFIX = ".steamstatic.com"
+
 #: Set once verification has been proven broken on this device, so we stop
 #: paying for a doomed verified attempt on every subsequent request.
 _tls_verification_broken = False
 _tls_warning_logged = False
+
+
+def _may_fall_back(url: str) -> bool:
+    """Whether the unverified fallback is allowed for ``url``."""
+    try:
+        host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return host == _TLS_FALLBACK_HOST or host.endswith(_TLS_FALLBACK_SUFFIX)
 
 
 def _is_tls_failure(error: BaseException) -> bool:
@@ -102,15 +117,18 @@ def _open(request: urllib.request.Request, timeout: float):
 
     Verification is still attempted first, and the fallback engages only
     after a genuine certificate error -- never after a timeout, DNS
-    failure, or HTTP error. What travels over it is public game metadata,
-    with no credentials and nothing user-identifying.
+    failure, or HTTP error -- and only for Steam's own store and CDN
+    hosts. Anything else keeps full verification and fails closed. What
+    travels over it is public game metadata, with no credentials and
+    nothing user-identifying.
     """
-    if _tls_verification_broken:
+    allowed = _may_fall_back(request.full_url)
+    if _tls_verification_broken and allowed:
         return _insecure_opener.open(request, timeout=timeout)
     try:
         return _opener.open(request, timeout=timeout)
     except (urllib.error.URLError, ssl.SSLError) as exc:
-        if not _is_tls_failure(exc):
+        if not allowed or not _is_tls_failure(exc):
             raise
         _note_tls_fallback(request.full_url, exc)
         return _insecure_opener.open(request, timeout=timeout)

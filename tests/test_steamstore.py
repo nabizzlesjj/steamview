@@ -349,3 +349,71 @@ class TestTlsFallback:
 
         assert len(warnings) == 1
         assert "certificate" in warnings[0][0].lower() or "TLS" in warnings[0][0]
+
+
+class TestTlsFallbackScope:
+    """The unverified fallback must be reachable only for Steam's own
+    hosts. Nothing else is fetched today, but the downgrade must not
+    travel with any URL a later change introduces."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://store.steampowered.com/api/appdetails?appids=1",
+            "https://cdn.cloudflare.steamstatic.com/steam/apps/1/microtrailer.webm",
+            "https://cdn.akamai.steamstatic.com/x.jpg",
+            "https://shared.fastly.steamstatic.com/x.jpg",
+        ],
+    )
+    def test_steam_hosts_are_allowed(self, url):
+        assert http._may_fall_back(url) is True
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://evil.example.com/x",
+            "https://steampowered.com.evil.net/x",
+            "https://steamstatic.com.attacker.io/x",
+            "https://notsteampowered.com/x",
+            "https://example.com/store.steampowered.com",
+            "not a url at all",
+            "",
+        ],
+    )
+    def test_everything_else_is_refused(self, url):
+        assert http._may_fall_back(url) is False
+
+    def test_a_non_steam_host_keeps_verification_even_once_broken(self, monkeypatch):
+        import ssl
+        import urllib.error
+
+        monkeypatch.setattr(http, "_tls_verification_broken", True)
+        monkeypatch.setattr(
+            http._opener,
+            "open",
+            lambda *a, **k: (_ for _ in ()).throw(
+                urllib.error.URLError(ssl.SSLCertVerificationError("bad cert"))
+            ),
+        )
+        monkeypatch.setattr(
+            http._insecure_opener,
+            "open",
+            lambda *a, **k: pytest.fail("must not downgrade for a non-Steam host"),
+        )
+        assert http.get_json("https://evil.example.com/api", sleep=lambda _: None) is None
+
+    def test_a_non_steam_cert_error_does_not_arm_the_fallback(self, monkeypatch):
+        import ssl
+        import urllib.error
+
+        monkeypatch.setattr(http, "_tls_verification_broken", False)
+        monkeypatch.setattr(http, "_tls_warning_logged", False)
+        monkeypatch.setattr(
+            http._opener,
+            "open",
+            lambda *a, **k: (_ for _ in ()).throw(
+                urllib.error.URLError(ssl.SSLCertVerificationError("bad cert"))
+            ),
+        )
+        assert http.get_json("https://evil.example.com/api", sleep=lambda _: None) is None
+        assert http._tls_verification_broken is False

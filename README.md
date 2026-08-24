@@ -141,11 +141,17 @@ Nothing about your library, your account or your usage is sent anywhere.
 Lookups are cached on disk for seven days and debounced, so scrolling a
 large library doesn't generate a request per frame.
 
+It requests **no root privileges**, executes no processes, and writes
+only to its own settings and cache directories.
+
 One caveat worth stating plainly: SteamOS ships an outdated certificate
 bundle, and TLS verification fails inside the Decky plugin process.
-SteamView tries verification first and falls back to an unverified
-connection **only** after a genuine certificate error. What travels over
-it is public game metadata — no credentials, nothing user-identifying.
+SteamView attempts verification first and falls back to an unverified
+connection **only** after a genuine certificate error, and **only for
+Steam's own hosts** — anything else keeps full verification and fails
+closed. [SECURITY.md](SECURITY.md) explains the trade-off, what an
+attacker could and couldn't do with it, and exactly what is cached and
+logged.
 
 ---
 

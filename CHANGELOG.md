@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-08-24
+
+### Security
+
+- Artwork URLs from the Steam client are now restricted to http, https
+  and client-local paths. `javascript:`, `data:`, `file:` and similar
+  previously passed through to the `<img>` and `<video>` elements. A
+  non-Steam shortcut's artwork is user-supplied data, so this is a real
+  boundary rather than a formality.
+- The unverified-TLS fallback is now scoped to `store.steampowered.com`
+  and `*.steamstatic.com`. It was reachable for any host once armed;
+  nothing else was ever fetched, but the downgrade should not travel
+  with a URL some later change introduces. Lookalike hosts such as
+  `steampowered.com.evil.net` are correctly refused.
+
+### Added
+
+- `SECURITY.md`: what the plugin can access, what it deliberately does
+  not do, the TLS trade-off and its blast radius, and what is cached and
+  logged locally.
+
+### Fixed
+
+- Install instructions covered Decky's side but not how the ZIP reaches
+  the Deck, which is the step that actually blocks people.
+
 ## [1.0.0] - 2026-08-23
 
 First stable release.
@@ -36,4 +62,5 @@ First stable release.
 - `THIRD_PARTY_LICENSES.md`, generated from the installed packages and
   shipped inside the plugin ZIP.
 
+[1.0.1]: https://github.com/nabizzlesjj/steamview/releases/tag/v1.0.1
 [1.0.0]: https://github.com/nabizzlesjj/steamview/releases/tag/v1.0.0

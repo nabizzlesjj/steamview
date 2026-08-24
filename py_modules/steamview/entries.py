@@ -88,20 +88,14 @@ def _coerce_appid(raw: Any) -> int:
 
 
 def _coerce_url(raw: Any) -> str | None:
-    if not isinstance(raw, str):
-        return None
-    url = raw.strip()
-    if not url:
-        return None
-    if url.startswith("//"):
-        return "https:" + url
-    if url.startswith("http://"):
-        return "https://" + url[len("http://") :]
-    if not url.startswith("https://"):
-        # Steam sometimes hands out local ``/assets/...`` paths; those are
-        # only meaningful inside the client, so pass them through as-is.
-        return url
-    return url
+    """Sanitise an artwork URL supplied by the frontend.
+
+    Delegates to :func:`steamview.media.client_art_url` so there is one
+    definition of what may reach an ``<img>`` or ``<video>`` element.
+    """
+    from .media import client_art_url
+
+    return client_art_url(raw)
 
 
 def detect_kind(appid: int, app_type: Any, is_shortcut_flag: Any) -> str:

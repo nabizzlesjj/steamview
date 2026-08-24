@@ -99,3 +99,26 @@ class TestParseEntry:
         entry = parse_entry({"appid": 0, "name": "Epic Game", "is_shortcut": True})
         assert entry is not None
         assert entry.kind == ENTRY_KIND_SHORTCUT
+
+
+class TestEntryUrlSanitisation:
+    """The frontend reads artwork URLs off Steam's app overview, and on a
+    non-Steam shortcut that artwork is whatever the user configured."""
+
+    def test_hostile_schemes_are_dropped(self):
+        entry = parse_entry(
+            {
+                "appid": 2749847623,
+                "name": "Shortcut",
+                "hero_url": "javascript:alert(1)",
+                "capsule_url": "data:text/html,x",
+                "extra_art": ["file:///etc/passwd", "https://cdn/ok.jpg"],
+            }
+        )
+        assert entry.hero_url is None
+        assert entry.capsule_url is None
+        assert entry.extra_art == ("https://cdn/ok.jpg",)
+
+    def test_client_local_paths_are_kept(self):
+        entry = parse_entry({"appid": 1, "name": "G", "hero_url": "/assets/hero.png"})
+        assert entry.hero_url == "/assets/hero.png"

@@ -125,18 +125,57 @@ class MediaResult:
         )
 
 
+#: Anything with a control character is malformed for our purposes and is
+#: rejected rather than sanitised, since there is no legitimate source for
+#: one in a media URL.
+_CONTROL_CHARS = frozenset(chr(c) for c in range(0x20)) | {"\x7f"}
+
+
+def _is_clean(text: str) -> bool:
+    return not any(char in _CONTROL_CHARS for char in text)
+
+
 def https(url: Any) -> str | None:
-    """Force a media URL to https, or drop it if it is not usable."""
+    """Force a remote media URL to https, or drop it if it is not usable.
+
+    Only http, https and protocol-relative URLs survive. Everything else
+    -- ``javascript:``, ``data:``, ``file:`` and friends -- is rejected,
+    because the result is handed straight to an ``<img>`` or ``<video>``
+    element and those schemes have no business there.
+    """
     if not isinstance(url, str):
         return None
     text = url.strip()
-    if not text:
+    if not text or not _is_clean(text):
         return None
     if text.startswith("//"):
         return "https:" + text
     if text.startswith("http://"):
         return "https://" + text[len("http://") :]
     if text.startswith("https://"):
+        return text
+    return None
+
+
+def client_art_url(url: Any) -> str | None:
+    """Sanitise an artwork URL that came from the Steam client.
+
+    Same rules as :func:`https`, plus client-local absolute paths, which
+    Steam does legitimately hand out for artwork it serves itself. A
+    non-Steam shortcut's custom artwork is user-supplied data, so it gets
+    the same treatment as anything else that reaches the DOM.
+    """
+    if not isinstance(url, str):
+        return None
+    text = url.strip()
+    if not text or not _is_clean(text):
+        return None
+    remote = https(text)
+    if remote:
+        return remote
+    # A single leading slash is a client-local path; "//" was already
+    # handled above as protocol-relative.
+    if text.startswith("/") and not text.startswith("//"):
         return text
     return None
 
@@ -316,13 +355,13 @@ def build_from_art(
     """The Path B floor: whatever artwork the client already had."""
     reel: list[str] = []
     for url in extra_art or ():
-        clean = https(url) or (url if isinstance(url, str) and url.strip() else None)
+        clean = client_art_url(url)
         if clean and clean not in reel:
             reel.append(clean)
         if len(reel) >= MAX_SCREENSHOTS:
             break
 
-    hero = https(hero_url) or (hero_url if isinstance(hero_url, str) and hero_url.strip() else None)
+    hero = client_art_url(hero_url)
     return MediaResult(
         key=key,
         kind=kind,

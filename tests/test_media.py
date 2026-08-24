@@ -353,3 +353,60 @@ class TestInfoPanelFields:
 
     def test_to_dict_contains_the_new_keys(self):
         assert {"short_description", "genres"} <= set(MediaResult(key="k", kind="steam").to_dict())
+
+
+class TestUrlSchemeRestriction:
+    """Media URLs are handed straight to <img> and <video> elements, so
+    only schemes that belong there may survive. Artwork on a non-Steam
+    shortcut is user-supplied, which makes this a real boundary rather
+    than a formality."""
+
+    @pytest.mark.parametrize(
+        "hostile",
+        [
+            "javascript:alert(1)",
+            "JavaScript:alert(1)",
+            "  javascript:alert(1)  ",
+            "data:text/html,<script>alert(1)</script>",
+            "file:///etc/passwd",
+            "vbscript:msgbox(1)",
+            "about:blank",
+            "chrome://settings",
+            "ftp://example.com/x.jpg",
+        ],
+    )
+    def test_hostile_schemes_are_rejected(self, hostile):
+        assert media.https(hostile) is None
+        assert media.client_art_url(hostile) is None
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("https://cdn/a.jpg", "https://cdn/a.jpg"),
+            ("http://cdn/a.jpg", "https://cdn/a.jpg"),
+            ("//cdn/a.jpg", "https://cdn/a.jpg"),
+        ],
+    )
+    def test_remote_urls_survive_both(self, raw, expected):
+        assert media.https(raw) == expected
+        assert media.client_art_url(raw) == expected
+
+    def test_client_local_paths_survive_only_client_art_url(self):
+        # Steam serves some artwork from its own client, by absolute path.
+        assert media.client_art_url("/assets/hero.png") == "/assets/hero.png"
+        assert media.https("/assets/hero.png") is None
+
+    def test_a_control_character_rejects_the_url(self):
+        assert media.https("https://cdn/a.jpg\nX-Injected: 1") is None
+        assert media.client_art_url("/assets/a\x00.png") is None
+
+    def test_art_fallback_drops_hostile_urls(self):
+        result = build_from_art(
+            key="k",
+            kind="shortcut",
+            title="Game",
+            hero_url="javascript:alert(1)",
+            extra_art=["file:///etc/passwd", "https://cdn/ok.jpg"],
+        )
+        assert result.hero_url is None
+        assert result.screenshot_urls == ["https://cdn/ok.jpg"]
