@@ -1,7 +1,7 @@
 # On-device test plan
 
 Everything that can be verified without hardware already is: the backend
-resolver has 306 `pytest` cases at 94% coverage with all network mocked,
+resolver has 362 `pytest` cases with all network mocked,
 and the frontend typechecks, lints and builds clean in CI. What none of
 that can prove is whether the focus hook actually fires on a real Deck,
 whether the microtrailer URL exists, and whether the overlay looks right
@@ -32,7 +32,7 @@ because everything else degrades gracefully around them:
 make package
 ```
 
-Copy `out/SteamView-v0.1.0.zip` to the Deck, then in Game Mode:
+Copy the resulting `out/SteamView-vX.Y.Z.zip` to the Deck, then in Game Mode:
 
 1. Quick Access Menu (**...** button) → the **plug** icon → **gear** →
    **Settings**
