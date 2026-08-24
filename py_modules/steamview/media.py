@@ -36,8 +36,8 @@ MICROTRAILER_HOSTS: tuple[str, ...] = (
     "https://shared.fastly.steamstatic.com",
 )
 
-#: Path template for the derived microtrailer. UNVERIFIED against a live
-#: CDN -- see the module docstring and DESIGN.md. Probed, never assumed.
+#: Path template for the derived microtrailer. Valve does not publish
+#: this path, so it is probed rather than assumed; see `resolve_trailer`.
 MICROTRAILER_PATH = "/steam/apps/{movie_id}/microtrailer.webm"
 
 #: More than this and the reel is longer than anyone will ever watch.

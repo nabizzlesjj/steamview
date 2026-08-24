@@ -1,4 +1,4 @@
-"""Media resolution: the two paths described in DESIGN.md, plus caching.
+"""Media resolution: the two paths described in ARCHITECTURE.md, plus caching.
 
 **Path A -- native Steam game.** The appid is real, so ``appdetails``
 gives us movies and screenshots directly.

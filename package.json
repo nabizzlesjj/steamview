@@ -1,6 +1,6 @@
 {
   "name": "steamview",
-  "version": "0.1.6",
+  "version": "1.0.0",
   "description": "Live media preview of the highlighted game in the SteamOS library.",
   "type": "module",
   "packageManager": "pnpm@9.15.9",

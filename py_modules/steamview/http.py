@@ -24,7 +24,7 @@ from .compat import logger
 
 #: A plain desktop UA. Steam's public endpoints reject some default
 #: urllib agents, and this keeps us indistinguishable from a browser hit.
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) SteamView/0.1 (+https://github.com/nabizzlesjj/steamview)"
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) SteamView/1.0"
 
 DEFAULT_TIMEOUT = 12.0
 
@@ -96,8 +96,9 @@ def _open(request: urllib.request.Request, timeout: float):
 
     SteamOS ships an outdated CA bundle, and inside the Decky plugin
     process certificate verification against Steam's own store endpoints
-    fails outright. Without a fallback, every media lookup returns nothing
-    and the overlay silently shows box art for every game.
+    fails outright. Without a fallback every media lookup returns nothing,
+    and because this module degrades to `None` rather than raising, that
+    failure is silent.
 
     Verification is still attempted first, and the fallback engages only
     after a genuine certificate error -- never after a timeout, DNS

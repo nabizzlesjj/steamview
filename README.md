@@ -17,7 +17,7 @@ including libraries imported by [Unifideck](https://github.com/mubaraknumann/uni
 > update. It is built so that when that happens, **only the preview
 > switches off** — the plugin's settings keep working and your Steam
 > library is never modified or blocked. See
-> [DESIGN.md](DESIGN.md#25-the-feature-flag-and-kill-safety).
+> [ARCHITECTURE.md](ARCHITECTURE.md#failure-policy).
 
 ---
 
@@ -259,8 +259,8 @@ tests/                pytest suite
 scripts/              packaging and CI guards
 ```
 
-[DESIGN.md](DESIGN.md) documents the focus-detection approach, what was
-verified against live sources versus assumed, and the risk register.
+[ARCHITECTURE.md](ARCHITECTURE.md) documents the focus-detection
+approach, the media resolver and the risk register.
 
 ---
 

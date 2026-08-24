@@ -102,7 +102,7 @@ first view, and nothing on subsequent views (it is cached).
 | Nothing at all | The focus hook is not firing. Check the frontend console for `[SteamView:focus]`. |
 | Screenshots, not video | No usable trailer was found, or Data saver is on. Check `trailer_url` in the log. |
 | A single static image | Neither video nor screenshots resolved; this is hero art. Check the `note` field in the log. |
-| The wrong game | The fiber walk found the wrong ancestor. Please report the game and the log line. |
+| The wrong game | The fiber walk found the wrong ancestor. Note the game and the log line. |
 
 ### Now check the detail page
 
@@ -126,8 +126,8 @@ before and look for a line mentioning `microtrailer`.
   are ~6 second silent loops, which is the ideal behaviour.
 - **`trailer_kind: "webm"`** — the probe failed and the fallback took
   over. **This is a working outcome, not a bug**: you get the full
-  trailer instead of the short loop. If you see this on several games,
-  tell me and I will drop the probe so it stops costing a request.
+  trailer instead of the short loop. If this happens on most games the
+  probe is not earning its request and can be dropped.
 
 Either way the preview plays. There is no failure mode here, only a
 better and a worse one.
@@ -161,8 +161,9 @@ applied. **This is the correct result, not a failure.**
 > ⚠️ **The failure to watch for here is the *wrong* trailer.** The
 > matcher is tuned to refuse anything below 0.82 similarity precisely to
 > avoid this. If you ever see a preview for a different game than the one
-> highlighted, that is the most important bug in this document — please
-> report the shortcut's exact display name.
+> highlighted, that is the most important failure in this document. Note
+> the shortcut's exact display name; the threshold in `matching.py` is
+> the dial to turn.
 
 Worth spot-checking a franchise: highlight a shortcut for *Portal* or
 *Grand Theft Auto V* if you have one, and confirm you do not get *Portal
@@ -249,8 +250,8 @@ Worth a single longer pass, since previews decode video continuously.
 
 **Expect:** data saver is measurably gentler. If normal mode is
 *dramatically* worse — fans running constantly, several percent of
-battery in ten minutes — tell me; the autoplay delay and the 480p cap are
-the levers.
+battery in ten minutes — the autoplay delay and the 480p cap are the
+levers to reach for.
 
 ---
 
@@ -283,7 +284,7 @@ keeps working completely normally.** Reload Steam to undo.
 
 ---
 
-## What to send me if something is wrong
+## Recording a failure
 
 1. Which test number, and what you saw versus what it says to expect
 2. The game's exact display name, and whether it is native or a shortcut
@@ -291,6 +292,6 @@ keeps working completely normally.** Reload Steam to undo.
 4. Anything prefixed `[SteamView` from the frontend console
 5. Your SteamOS version (Settings → System) and the plugin version
 
-The single most valuable report is **the wrong game's trailer showing**,
-because that means the matcher needs tightening and no amount of
-off-device testing will find it.
+The most significant failure is **the wrong game's trailer showing**: it
+means the matcher needs tightening, and no amount of off-device testing
+will surface it.

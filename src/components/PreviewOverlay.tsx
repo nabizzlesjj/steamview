@@ -58,11 +58,10 @@ export function PreviewOverlay() {
   //
   // `position: fixed` resolves against the nearest ancestor carrying a
   // transform, and Steam's content area is transformed for its page
-  // transitions. Rendered where Decky mounts us, the card was therefore
-  // positioned inside -- and clipped by -- that region, which is why the
-  // info panel was cut off at the footer bar rather than sitting above
-  // it. Portalling to the SP window's body escapes that container so
-  // "fixed" means the viewport again.
+  // transitions. A card rendered where Decky mounts the component would
+  // therefore be positioned inside -- and clipped by -- that region
+  // rather than the screen. Portalling to the SP window's body escapes
+  // it, so "fixed" means the viewport.
 
   const [host, setHost] = useState<HTMLElement | null>(null);
 
@@ -255,10 +254,11 @@ const EDGE_MARGIN = 20;
  * Steam's library chrome, in CSS pixels, which bounds the area the
  * overlay is allowed to cover.
  *
- * Note these are *CSS* pixels, not the panel's. Game Mode renders its UI
+ * These are *CSS* pixels, not the panel's. Game Mode renders its UI
  * zoomed: a Deck's 1280x800 screen is roughly an 870x545 CSS viewport.
- * So the library pane between the two bars is only ~380px tall, which is
- * why a Large card (377px) has to be clamped rather than merely nudged.
+ * The pane between the two bars is therefore only ~380px tall, against a
+ * Large card of 377px -- so the clamp in `containerStyle` is a real
+ * constraint, not a safety net.
  */
 const LIBRARY_PANE_TOP = 96; // search field + collection tabs
 const LIBRARY_PANE_BOTTOM = 72; // button-hint bar

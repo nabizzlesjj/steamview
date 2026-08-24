@@ -52,7 +52,7 @@ class Plugin:
     async def get_media_for(self, entry=None):
         """Resolve media for one library entry.
 
-        Returns the media object described in DESIGN.md, or a well-formed
+        Returns the media object described in ARCHITECTURE.md, or a well-formed
         empty one. Never raises.
         """
         try:
