@@ -310,6 +310,13 @@ install on a Deck.
 
 ---
 
+## Contributing
+
+**This repository does not accept pull requests** — it is a personal
+project. You are entirely welcome to fork it and do whatever you like;
+the licence is permissive and your fork is yours. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 BSD-3-Clause. See [LICENSE](LICENSE).
