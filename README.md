@@ -111,6 +111,23 @@ each game is previewed. After that its media is cached on disk.
 Same steps — installing a newer ZIP over the top replaces the old
 version. Your settings are kept.
 
+### Installing an unreleased build
+
+Every push builds an installable ZIP, so a branch can be tried before
+it's released. On the repository's
+[Actions](https://github.com/nabizzlesjj/steamview/actions) tab, open the
+newest green **CI** run for the branch you want and scroll to
+**Artifacts** → **SteamView-plugin-zip**.
+
+Two things to know: the download needs you to be signed in to GitHub, and
+GitHub wraps artifacts in a second ZIP. Extract
+`SteamView-plugin-zip.zip` once (in Dolphin: right-click → **Extract** →
+**Extract archive here**) to get the `SteamView-vX.Y.Z.zip` that Decky
+installs. Then follow **2. Install it** above.
+
+To go back, install the ZIP from the
+[Releases](https://github.com/nabizzlesjj/steamview/releases) page again.
+
 ---
 
 ## Settings
