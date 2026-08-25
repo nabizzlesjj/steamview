@@ -43,8 +43,12 @@ lint: ## Run eslint
 test: ## Run the Python test suite
 	python3 -m pytest
 
+.PHONY: test-fe
+test-fe: ## Run the frontend geometry tests
+	pnpm run test:fe
+
 .PHONY: check
-check: typecheck lint test ## Everything CI runs
+check: typecheck lint test-fe test ## Everything CI runs
 	python3 scripts/check_stdlib_only.py
 
 .PHONY: licenses

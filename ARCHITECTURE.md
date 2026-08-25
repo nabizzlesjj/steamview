@@ -114,11 +114,55 @@ by that region rather than the screen.
 
 The host spans the *library pane* — inset past the search field and
 collection tabs above, and the button-hint bar below — so the overlay can
-only ever cover the game grid. Note that Game Mode renders its UI zoomed:
-a Deck's 1280x800 panel is roughly an 870x545 CSS viewport, leaving a
-pane only ~380px tall against a 377px Large card. The card is clamped to
-the pane, and when that clamp binds the media shrinks while the info
-panel does not.
+only ever cover the game grid.
+
+Note that Game Mode renders its UI zoomed: a Deck's 1280x800 panel is
+roughly an 870x545 CSS viewport, leaving a pane only ~380px tall against
+a 377px Large card. The card is clamped to the pane, and when that clamp
+binds the media shrinks while the info panel does not.
+
+#### Sizing across displays
+
+Game Mode runs on far more than a Deck — a docked Deck, a Bazzite
+desktop, a plain SteamOS install at 1080p, 1440p or 4K — and a card
+whose width is a fixed pixel count is right on exactly one of them.
+
+`bindings.measureLibraryPane` reads the rect of Steam's own container,
+preferring `CollectionContents` (the grid) and falling back to
+`GamepadLibrary` (the whole library page). A rect is only believed if it
+plausibly *is* the library: most of the viewport's width, a real slice of
+its height, and insets that leave positive space.
+
+`overlayGeometry` then turns that into a card, as pure arithmetic with no
+DOM, which is what makes it testable:
+
+- **Width** is a fraction of the pane, the fraction being whatever the
+  Deck's tuned width was over the Deck's pane. A Deck therefore
+  reproduces 280 / 380 / 480 exactly, and a larger display keeps the
+  proportion. It is then clamped to per-size minima and maxima, and to
+  the pane itself — the last of which wins outright, since overhanging
+  the grid is worse than being narrower than intended.
+- **Type, padding and margins** scale with the rendered width, clamped
+  to 0.8–1.6, so the proportions tuned by eye survive rather than being
+  re-tuned per resolution.
+- **Insets** are the *larger* of the measurement and the Deck-verified
+  floor (96 top, 72 bottom). Those are CSS pixels, which zoom does not
+  change — zoom scales the coordinate space, so Steam's stylesheet keeps
+  its numbers and only the viewport grows. Taking the larger can only
+  move the pane inward from behaviour already verified on hardware,
+  which matters because the element available to measure is sometimes
+  the library page rather than the grid, and its top edge then sits
+  *above* the search field. Wasted space is a cost; covering the search
+  field is a bug.
+
+The pane is re-measured on window resize (docking, undocking, a
+resolution change) and once per settled focus, which is the cheapest
+moment at which the container is certainly mounted.
+
+`tests/frontend/overlayGeometry.test.mjs` runs the arithmetic across
+Deck, 1080p, 1440p and 4K viewports and asserts the card never outgrows
+its pane, never shrinks as the pane grows, and never inverts the size
+ordering.
 
 ---
 

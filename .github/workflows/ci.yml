@@ -41,6 +41,12 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      # Pure-arithmetic overlay sizing, run against every display Game
+      # Mode ships on. No test framework: node's own runner, over the
+      # module compiled by the TypeScript already installed here.
+      - name: Test
+        run: pnpm run test:fe
+
       - name: Build
         run: pnpm run build
 

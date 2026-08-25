@@ -141,6 +141,91 @@ export function isInScope(element: Element | null): boolean {
   return matchesAny(element, selectors);
 }
 
+/**
+ * The library pane, measured from Steam's own containers: its inset from
+ * the top and bottom of the viewport and its rendered size, all in CSS
+ * pixels.
+ *
+ * The overlay must sit inside the game grid without covering the search
+ * field and collection tabs above it or the button-hint bar below, and
+ * -- the reason this exists -- it must be *sized* against the grid it
+ * sits in. Game Mode runs on far more than a Deck: a docked Deck, a
+ * Bazzite desktop, a plain SteamOS install at 1080p, 1440p or 4K. A card
+ * whose width is a fixed pixel count is tuned for exactly one of those.
+ *
+ * The caller decides how much to trust the insets (see
+ * `overlayGeometry.paneInsets`, which treats them as a refinement of a
+ * floor rather than an answer). The *width* is used directly, because
+ * there is no comparable risk in it: too narrow wastes space, and it
+ * cannot cover chrome.
+ */
+export interface LibraryPane {
+  top: number;
+  bottom: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * A measurement is only trusted if the container plausibly *is* the
+ * library: it has to occupy most of the width and a real slice of the
+ * height. A collapsed or mis-identified element falls back to the
+ * caller's defaults rather than positioning the card somewhere absurd.
+ */
+const MIN_PANE_WIDTH_FRACTION = 0.5;
+const MIN_PANE_HEIGHT_FRACTION = 0.3;
+
+/**
+ * Candidates, most specific first. `CollectionContents` is the grid
+ * itself, so its top edge already sits below the search field and
+ * collection tabs; `GamepadLibrary` is the whole library page and on
+ * some layouts contains them. Either is a usable width, and the caller's
+ * inset floor covers the difference between them.
+ */
+let cachedPaneSelectors: string[] | null = null;
+
+function paneSelectors(): string[] {
+  return (cachedPaneSelectors ??= toSelectors([
+    gamepadLibraryClasses?.CollectionContents,
+    gamepadLibraryClasses?.GamepadLibrary,
+  ]));
+}
+
+export function measureLibraryPane(doc: Document | null | undefined): LibraryPane | null {
+  if (!doc?.defaultView) return null;
+
+  const viewportWidth = doc.defaultView.innerWidth;
+  const viewportHeight = doc.defaultView.innerHeight;
+  if (!(viewportWidth > 0 && viewportHeight > 0)) return null;
+
+  for (const selector of paneSelectors()) {
+    let rect: DOMRect | undefined;
+    try {
+      rect = doc.querySelector(selector)?.getBoundingClientRect();
+    } catch {
+      continue;
+    }
+    if (!rect) continue;
+
+    if (
+      rect.width < viewportWidth * MIN_PANE_WIDTH_FRACTION ||
+      rect.height < viewportHeight * MIN_PANE_HEIGHT_FRACTION
+    ) {
+      continue;
+    }
+
+    const top = Math.max(0, Math.round(rect.top));
+    const bottom = Math.max(0, Math.round(viewportHeight - rect.bottom));
+    // A pane taller than the viewport means the rect is not what we think
+    // it is; refuse rather than produce negative space.
+    if (top + bottom >= viewportHeight) continue;
+
+    return { top, bottom, width: Math.round(rect.width), height: Math.round(rect.height) };
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------
 // The fiber walk
 // ---------------------------------------------------------------------

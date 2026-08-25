@@ -1,13 +1,15 @@
 # On-device test plan
 
 Everything that can be verified without hardware already is: the backend
-resolver has 362 `pytest` cases with all network mocked,
+resolver has 392 `pytest` cases with all network mocked, the overlay's
+sizing arithmetic is tested across Deck, 1080p, 1440p and 4K viewports,
 and the frontend typechecks, lints and builds clean in CI. What none of
 that can prove is whether the focus hook actually fires on a real Deck,
-whether the microtrailer URL exists, and whether the overlay looks right
-on a 1280x800 panel in Game Mode.
+whether the microtrailer URL exists, and whether the pane Steam actually
+renders matches the one the plugin measures.
 
-That is what this document is for. It should take about 25 minutes.
+That is what this document is for. It should take about 30 minutes, or a
+little longer if you have a display other than the Deck's to try.
 
 **Two things are genuinely unverified** and deserve your attention first,
 because everything else degrades gracefully around them:
@@ -241,7 +243,36 @@ video-only controls are greyed out rather than silently ignored.
 
 ---
 
-## Test 8: battery and thermals
+## Test 8: displays other than a Deck's
+
+Only relevant if you have one. Game Mode runs on a docked Deck and on
+desktop SteamOS or Bazzite, and the overlay measures the library pane
+rather than assuming a handheld's.
+
+Run this on each display you have, and at each of the three **Overlay
+size** settings:
+
+- [ ] The card sits **inside the game grid** — clear of the search field
+      and collection tabs above it, and of the button-hint bar below
+- [ ] It is **proportionate**: not a postage stamp on a 4K TV, not half
+      the screen on a 1080p monitor
+- [ ] The **title, genres and description are readable** from wherever
+      you actually sit
+- [ ] All four corner positions still land in their corners
+
+Then, with a Deck: highlight a game, **dock or undock** without leaving
+the library, and confirm the card **re-places itself** to the new pane
+within a second or so. It should not need a restart, and it should not
+be left stranded over the chrome.
+
+> If the card covers the search field or the button bar on some display,
+> that is the measurement disagreeing with Steam's real layout. Note the
+> resolution, and grab `[SteamView]` lines from the frontend console —
+> `overlayGeometry.paneInsets` is the one place to change.
+
+---
+
+## Test 9: battery and thermals
 
 Worth a single longer pass, since previews decode video continuously.
 
@@ -257,7 +288,7 @@ levers to reach for.
 
 ---
 
-## Test 9: it never breaks the library
+## Test 10: it never breaks the library
 
 The non-negotiable. Confirm all of these hold:
 

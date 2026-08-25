@@ -23,9 +23,18 @@ import { createPortal } from "react-dom";
 import { findSP } from "@decky/ui";
 
 import { getMediaFor, prefetch as prefetchEntries } from "../api";
+import {
+  FALLBACK_PANE_BOTTOM,
+  cardWidth,
+  edgeMargin,
+  paneInset,
+  paneInsets,
+  typeScale,
+} from "../overlayGeometry";
+import { measureLibraryPane, type LibraryPane } from "../steam/bindings";
 import { startFocusTracking } from "../steam/focus";
 import { setFocusStatus, usePluginState } from "../store";
-import type { LibraryEntry, MediaResult, OverlayPosition, OverlaySize } from "../types";
+import type { LibraryEntry, MediaResult, OverlayPosition } from "../types";
 import { entryKey } from "../types";
 import { ScreenshotReel } from "./ScreenshotReel";
 import { TrailerPlayer } from "./TrailerPlayer";
@@ -64,6 +73,7 @@ export function PreviewOverlay() {
   // it, so "fixed" means the viewport.
 
   const [host, setHost] = useState<HTMLElement | null>(null);
+  const [pane, setPane] = useState<LibraryPane | null>(null);
 
   useEffect(() => {
     let element: HTMLElement | null = null;
@@ -73,12 +83,8 @@ export function PreviewOverlay() {
       doc.getElementById(HOST_ID)?.remove();
       element = doc.createElement("div");
       element.id = HOST_ID;
-      // The host *is* the library pane: inset past Steam's own chrome so
-      // the card is bounded by it rather than by the whole viewport.
       Object.assign(element.style, {
         position: "fixed",
-        top: `${LIBRARY_PANE_TOP}px`,
-        bottom: `${LIBRARY_PANE_BOTTOM}px`,
         left: "0",
         right: "0",
         pointerEvents: "none",
@@ -96,6 +102,45 @@ export function PreviewOverlay() {
       setHost(null);
     };
   }, []);
+
+  // --- pane measurement ------------------------------------------------
+  //
+  // Steam's chrome is a fixed CSS size, but Game Mode zooms its UI by
+  // resolution, so those pixels differ between a Deck, a docked Deck and
+  // a desktop running at 1080p or 4K. Measuring the library container
+  // gets the pane right on all of them, and survives a layout change
+  // that hardcoded numbers would not.
+
+  const remeasure = useCallback(() => {
+    try {
+      const measured = measureLibraryPane(findSP()?.document);
+      // Only replace a good measurement with another good one: leaving
+      // the library unmounts the container, and the last known pane is a
+      // better answer than the fallback.
+      if (measured) setPane((current) => (samePane(current, measured) ? current : measured));
+    } catch (error) {
+      console.warn("[SteamView] could not measure the library pane:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    remeasure();
+    const win = findSP();
+    // Docking, undocking and resolution changes all arrive as a resize.
+    win?.addEventListener?.("resize", remeasure);
+    return () => win?.removeEventListener?.("resize", remeasure);
+  }, [active, remeasure]);
+
+  // The host spans the library pane, so the card can only ever cover the
+  // game grid. Measured insets when we have them; the Deck-tuned
+  // constants only when the container could not be found at all.
+  useEffect(() => {
+    if (!host) return;
+    const insets = paneInsets(pane);
+    host.style.top = `${insets.top}px`;
+    host.style.bottom = `${insets.bottom}px`;
+  }, [host, pane]);
 
   // --- focus tracking -------------------------------------------------
 
@@ -120,11 +165,16 @@ export function PreviewOverlay() {
       setSettled(null);
       return;
     }
-    const timer = setTimeout(() => setSettled(entry), settings.preview_delay_ms);
+    const timer = setTimeout(() => {
+      // Focus is in the library, so the container is mounted and this is
+      // the cheapest reliable moment to measure it.
+      remeasure();
+      setSettled(entry);
+    }, settings.preview_delay_ms);
     return () => clearTimeout(timer);
     // Keyed on identity, so re-reporting the same game does not restart
     // the timer and stall the preview during continuous input.
-  }, [focusedKey, entry, settings.preview_delay_ms]);
+  }, [focusedKey, entry, settings.preview_delay_ms, remeasure]);
 
   // --- media resolution ----------------------------------------------
 
@@ -188,13 +238,17 @@ export function PreviewOverlay() {
 
   if (!active || !media || !stage) return null;
 
-  const scale = SIZE_SCALE[settings.size] ?? SIZE_SCALE.m;
+  const width = cardWidth(settings.size, pane?.width ?? null);
+  const scale = typeScale(settings.size, width);
   // The title alone is worth a panel; a shortcut with no store match
   // still gets a labelled preview rather than an anonymous video.
   const hasInfo = Boolean(media.title || media.genres.length > 0 || media.short_description);
 
   const card = (
-    <div style={containerStyle(settings.position, settings.size, Boolean(host))} aria-hidden="true">
+    <div
+      style={containerStyle(settings.position, width, scale, Boolean(host))}
+      aria-hidden="true"
+    >
       <style>{KEYFRAMES}</style>
       <div style={CARD_STYLE}>
         <div style={MEDIA_STYLE}>
@@ -242,53 +296,54 @@ export function PreviewOverlay() {
 // Presentation
 // ---------------------------------------------------------------------
 
-/** Overlay widths, in CSS pixels on the Deck's 1280x800 panel. */
-const SIZE_WIDTHS: Record<OverlaySize, number> = { s: 280, m: 380, l: 480 };
-
-/** Type and padding scale with the overlay so Small stays readable. */
-const SIZE_SCALE: Record<OverlaySize, number> = { s: 0.85, m: 1, l: 1.15 };
-
-const EDGE_MARGIN = 20;
+/**
+ * True when a fresh measurement says nothing new. Avoids a state update
+ * -- and the re-render behind it -- on every focus move, since the pane
+ * only actually changes when the window does.
+ */
+function samePane(current: LibraryPane | null, measured: LibraryPane): boolean {
+  return (
+    current !== null &&
+    current.top === measured.top &&
+    current.bottom === measured.bottom &&
+    current.width === measured.width &&
+    current.height === measured.height
+  );
+}
 
 /**
- * Steam's library chrome, in CSS pixels, which bounds the area the
- * overlay is allowed to cover.
+ * Where the card sits, and how far it is inset.
  *
- * These are *CSS* pixels, not the panel's. Game Mode renders its UI
- * zoomed: a Deck's 1280x800 screen is roughly an 870x545 CSS viewport.
- * The pane between the two bars is therefore only ~380px tall, against a
- * Large card of 377px -- so the clamp in `containerStyle` is a real
- * constraint, not a safety net.
+ * `width` and `scale` come from `overlayGeometry`, which derives them
+ * from the measured pane -- so the offsets here scale with the card
+ * rather than staying at their Deck-tuned pixel values on a 4K display,
+ * where a 20px margin would read as no margin at all.
  */
-const LIBRARY_PANE_TOP = 96; // search field + collection tabs
-const LIBRARY_PANE_BOTTOM = 72; // button-hint bar
-
-/** Gap between the card and the bar it sits against. */
-const PANE_INSET = 8;
-
-/** Only used when the portal host could not be created. */
-const VERTICAL_MARGIN = LIBRARY_PANE_BOTTOM + PANE_INSET;
-
 function containerStyle(
   position: OverlayPosition,
-  size: OverlaySize,
+  width: number,
+  scale: number,
   portalled: boolean,
 ): React.CSSProperties {
-  const width = SIZE_WIDTHS[size] ?? SIZE_WIDTHS.m;
   const [vertical, horizontal] = position.split("-") as ["top" | "bottom", "left" | "right"];
+  const inset = paneInset(scale);
+  const margin = edgeMargin(scale);
+  // Without the host there is no pane to sit inside, so the card clears
+  // Steam's chrome by the fallback amount and hopes for the best.
+  const unhosted = FALLBACK_PANE_BOTTOM + inset;
 
   return {
-    // Inside the portal host (itself fixed and filling the viewport)
+    // Inside the portal host (itself fixed, and spanning the pane)
     // absolute is enough, and is immune to any transform further up.
     position: portalled ? "absolute" : "fixed",
     // Inside the host the offset is from the pane edge, not the screen.
-    [vertical]: portalled ? PANE_INSET : VERTICAL_MARGIN,
-    [horizontal]: EDGE_MARGIN,
+    [vertical]: portalled ? inset : unhosted,
+    [horizontal]: margin,
     width,
-    // The pane is barely taller than a Large card, so this is a real
-    // constraint rather than insurance: when it binds, the media gives
-    // way (see MEDIA_STYLE) and the text stays intact.
-    maxHeight: portalled ? `calc(100% - ${PANE_INSET * 2}px)` : `calc(100% - ${VERTICAL_MARGIN * 2}px)`,
+    // On a Deck the pane is barely taller than a Large card, so this is
+    // a real constraint rather than insurance: when it binds, the media
+    // gives way (see MEDIA_STYLE) and the text stays intact.
+    maxHeight: portalled ? `calc(100% - ${inset * 2}px)` : `calc(100% - ${unhosted * 2}px)`,
     display: "flex",
     flexDirection: "column",
     // Height is left to content: the media keeps its 16:9 ratio and the

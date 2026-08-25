@@ -33,3 +33,6 @@ build/
 Thumbs.db
 *.log
 .env
+
+# Test-only compiler output (see tsconfig.test.json)
+.tsbuild/

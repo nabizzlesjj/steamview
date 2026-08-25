@@ -33,6 +33,11 @@ anonymous video.
 The preview covers only the library grid. Opening a game's page hides it,
 since Steam already fills that screen with the game's own artwork.
 
+It measures the library pane rather than assuming one, so it sits
+correctly on a Steam Deck, on a docked Deck, and on desktop Game Mode —
+Bazzite or plain SteamOS — at 1080p, 1440p or 4K. The card grows with the
+grid, and its text grows with the card.
+
 ### Non-Steam shortcuts
 
 A shortcut has no store appid, only a name. SteamView searches the Steam
@@ -96,9 +101,10 @@ it should appear within a second.
 > there should skip the Desktop Mode trip entirely. I haven't verified
 > it, so the route above is the one I know works.
 
-**Requirements:** a Steam Deck or SteamOS device, Decky Loader, and an
-internet connection the first time each game is previewed. After that its
-media is cached on disk.
+**Requirements:** any device running SteamOS Game Mode — a Steam Deck,
+docked or handheld, or a desktop running SteamOS or Bazzite at any
+resolution — plus Decky Loader and an internet connection the first time
+each game is previewed. After that its media is cached on disk.
 
 ### Updating
 
@@ -172,7 +178,8 @@ pnpm install
 | `pnpm run watch` | Rebuild on change |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run lint` | ESLint over `src/` |
-| `pytest` | Backend test suite (362 tests) |
+| `pnpm run test:fe` | Overlay sizing tests, across Deck / 1080p / 1440p / 4K |
+| `pytest` | Backend test suite (392 tests) |
 | `make check` | Everything CI runs |
 | `make package` | Build the installable ZIP into `out/` |
 | `make licenses` | Regenerate `THIRD_PARTY_LICENSES.md` |
@@ -211,8 +218,10 @@ py_modules/steamview/ all backend logic, unit tested
 src/                  frontend
   steam/bindings.ts     everything Steam-specific -- start here after a SteamOS update
   steam/focus.ts        the focus listener and its failure policy
+  overlayGeometry.ts    display-independent card sizing, pure and testable
   components/           overlay and settings UI
 tests/                pytest suite
+  frontend/             overlay sizing tests (node's own runner, no framework)
 ```
 
 [ARCHITECTURE.md](ARCHITECTURE.md) explains the focus hook, the media

@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-08-25
+
+Game Mode is not only a Steam Deck. This release makes the overlay sit
+correctly on a docked Deck and on desktop SteamOS or Bazzite at 1080p,
+1440p and 4K, where it was previously sized for exactly one panel.
+
+### Added
+
+- The overlay now measures Steam's own library container and sizes
+  itself against the pane it sits in, rather than against a fixed pixel
+  count tuned on a 1280x800 handheld. On a Deck the card is unchanged to
+  the pixel; on larger displays it grows with the grid, and its
+  typography, padding and margins grow with it.
+- Re-measurement on window resize, so docking and undocking a Deck --
+  and any resolution change -- are picked up without a restart.
+- A frontend test suite (`pnpm run test:fe`, `make test-fe`) covering the
+  sizing arithmetic across Deck, 1080p, 1440p and 4K viewports. It uses
+  node's own test runner over the compiled module, so it adds no
+  dependency of any kind.
+
+### Fixed
+
+- On a pane narrower than the card's own minimum width, the card could
+  overhang the grid. The pane now wins.
+
 ## [1.0.1] - 2026-08-24
 
 ### Security

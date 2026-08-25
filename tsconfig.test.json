@@ -1,0 +1,13 @@
+{
+  // Compiles the pure-arithmetic modules on their own so `node --test`
+  // can exercise them. Deliberately no test framework and no @types/node:
+  // the tests themselves are plain .mjs, so the only tool involved is the
+  // TypeScript compiler that is already a devDependency.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": ".tsbuild",
+    "rootDir": ".",
+    "noEmit": false
+  },
+  "include": ["src/overlayGeometry.ts", "src/types.ts"]
+}

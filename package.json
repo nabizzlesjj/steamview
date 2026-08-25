@@ -1,6 +1,6 @@
 {
   "name": "steamview",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Live media preview of the highlighted game in the SteamOS library.",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
@@ -13,8 +13,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
+    "test:fe": "tsc -p tsconfig.test.json && node --test \"tests/frontend/**/*.test.mjs\"",
     "test:py": "pytest",
-    "test": "pnpm run typecheck && pnpm run lint && pnpm run test:py"
+    "test": "pnpm run typecheck && pnpm run lint && pnpm run test:fe && pnpm run test:py"
   },
   "repository": {
     "type": "git",

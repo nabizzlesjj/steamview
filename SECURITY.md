@@ -1,6 +1,6 @@
 # Security
 
-SteamView runs inside Decky Loader on your Steam Deck. This document
+SteamView runs inside Decky Loader on your SteamOS device. This document
 states what it can reach, what it deliberately does not do, and the one
 place it makes a security trade-off you should know about.
 
