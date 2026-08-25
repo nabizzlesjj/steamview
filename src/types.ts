@@ -68,6 +68,10 @@ export interface Settings {
   position: OverlayPosition;
   size: OverlaySize;
   data_saver: boolean;
+  /** Flip the card away from the side the highlighted game is on. */
+  dynamic_position: boolean;
+  /** A Steam store language code, or "auto" to follow the client. */
+  language: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -80,6 +84,8 @@ export const DEFAULT_SETTINGS: Settings = {
   position: "bottom-right",
   size: "m",
   data_saver: false,
+  dynamic_position: false,
+  language: "auto",
 };
 
 export interface CacheStats {

@@ -27,13 +27,16 @@ import {
   FALLBACK_PANE_BOTTOM,
   cardWidth,
   edgeMargin,
+  nextSide,
   paneInset,
   paneInsets,
+  resolvePosition,
   typeScale,
+  type PaneSide,
 } from "../overlayGeometry";
-import { measureLibraryPane, type LibraryPane } from "../steam/bindings";
+import { measureFocusCentre, measureLibraryPane, type LibraryPane } from "../steam/bindings";
 import { startFocusTracking } from "../steam/focus";
-import { setFocusStatus, usePluginState } from "../store";
+import { currentLanguage, setFocusStatus, usePluginState } from "../store";
 import type { LibraryEntry, MediaResult, OverlayPosition } from "../types";
 import { entryKey } from "../types";
 import { ScreenshotReel } from "./ScreenshotReel";
@@ -75,6 +78,14 @@ export function PreviewOverlay() {
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [pane, setPane] = useState<LibraryPane | null>(null);
 
+  /**
+   * Which half of the pane the highlight is in. Kept in a ref as well as
+   * state because the hysteresis in `nextSide` needs the previous answer
+   * at the moment of measurement, not at the next render.
+   */
+  const [side, setSide] = useState<PaneSide | null>(null);
+  const sideRef = useRef<PaneSide | null>(null);
+
   useEffect(() => {
     let element: HTMLElement | null = null;
     try {
@@ -111,16 +122,22 @@ export function PreviewOverlay() {
   // gets the pane right on all of them, and survives a layout change
   // that hardcoded numbers would not.
 
-  const remeasure = useCallback(() => {
+  const paneRef = useRef<LibraryPane | null>(null);
+
+  const remeasure = useCallback((): LibraryPane | null => {
     try {
       const measured = measureLibraryPane(findSP()?.document);
       // Only replace a good measurement with another good one: leaving
       // the library unmounts the container, and the last known pane is a
       // better answer than the fallback.
-      if (measured) setPane((current) => (samePane(current, measured) ? current : measured));
+      if (measured) {
+        paneRef.current = measured;
+        setPane((current) => (samePane(current, measured) ? current : measured));
+      }
     } catch (error) {
       console.warn("[SteamView] could not measure the library pane:", error);
     }
+    return paneRef.current;
   }, []);
 
   useEffect(() => {
@@ -167,14 +184,26 @@ export function PreviewOverlay() {
     }
     const timer = setTimeout(() => {
       // Focus is in the library, so the container is mounted and this is
-      // the cheapest reliable moment to measure it.
-      remeasure();
+      // the cheapest reliable moment to measure it. It is also the point
+      // at which the highlight has stopped moving, so the focused
+      // element really is the capsule the user landed on.
+      const measured = remeasure();
+      if (settings.dynamic_position) {
+        const centre = measureFocusCentre(findSP()?.document, measured);
+        if (centre !== null) {
+          const resolved = nextSide(sideRef.current, centre);
+          if (resolved !== sideRef.current) {
+            sideRef.current = resolved;
+            setSide(resolved);
+          }
+        }
+      }
       setSettled(entry);
     }, settings.preview_delay_ms);
     return () => clearTimeout(timer);
     // Keyed on identity, so re-reporting the same game does not restart
     // the timer and stall the preview during continuous input.
-  }, [focusedKey, entry, settings.preview_delay_ms, remeasure]);
+  }, [focusedKey, entry, settings.preview_delay_ms, settings.dynamic_position, remeasure]);
 
   // --- media resolution ----------------------------------------------
 
@@ -190,7 +219,7 @@ export function PreviewOverlay() {
     let cancelled = false;
 
     setStageIndex(0);
-    getMediaFor(settled)
+    getMediaFor(settled, currentLanguage())
       .then((result) => {
         // Two guards: this effect being torn down, and a newer request
         // having started while we were waiting.
@@ -206,7 +235,10 @@ export function PreviewOverlay() {
     return () => {
       cancelled = true;
     };
-  }, [settledKey, settled, active]);
+    // `settings.language` is in the deps because changing it must
+    // re-resolve what is on screen: the cache is keyed by language, so
+    // this is a lookup, not a refetch.
+  }, [settledKey, settled, active, settings.language]);
 
   // --- neighbour prefetch ---------------------------------------------
 
@@ -215,7 +247,7 @@ export function PreviewOverlay() {
     // Only once focus has been stable well past the debounce, so this
     // never competes with the request the user is actually waiting on.
     const timer = setTimeout(() => {
-      void prefetchEntries([settled]);
+      void prefetchEntries([settled], currentLanguage());
     }, PREFETCH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [settledKey, settled, active]);
@@ -240,13 +272,14 @@ export function PreviewOverlay() {
 
   const width = cardWidth(settings.size, pane?.width ?? null);
   const scale = typeScale(settings.size, width);
+  const position = resolvePosition(settings.position, side, settings.dynamic_position);
   // The title alone is worth a panel; a shortcut with no store match
   // still gets a labelled preview rather than an anonymous video.
   const hasInfo = Boolean(media.title || media.genres.length > 0 || media.short_description);
 
   const card = (
     <div
-      style={containerStyle(settings.position, width, scale, Boolean(host))}
+      style={containerStyle(position, width, scale, Boolean(host))}
       aria-hidden="true"
     >
       <style>{KEYFRAMES}</style>
@@ -306,6 +339,7 @@ function samePane(current: LibraryPane | null, measured: LibraryPane): boolean {
     current !== null &&
     current.top === measured.top &&
     current.bottom === measured.bottom &&
+    current.left === measured.left &&
     current.width === measured.width &&
     current.height === measured.height
   );

@@ -10,6 +10,8 @@
 import { useEffect, useState } from "react";
 
 import { getSettings, setSettings } from "./api";
+import { effectiveLanguage } from "./languages";
+import { readClientLanguage } from "./steam/bindings";
 import type { FocusStatus, Settings } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 
@@ -19,6 +21,12 @@ export interface PluginState {
   focus: FocusStatus;
   /** True until the first backend settings load resolves. */
   loading: boolean;
+  /**
+   * The language Steam itself is set to, once asked. Null means Steam
+   * would not say, or has not been asked yet -- either way the effective
+   * language falls back to English.
+   */
+  clientLanguage: string | null;
 }
 
 type Listener = (state: PluginState) => void;
@@ -27,6 +35,7 @@ let state: PluginState = {
   settings: { ...DEFAULT_SETTINGS },
   focus: { ok: true },
   loading: true,
+  clientLanguage: null,
 };
 
 const listeners = new Set<Listener>();
@@ -54,6 +63,24 @@ export function setFocusStatus(focus: FocusStatus): void {
 export async function loadSettings(): Promise<void> {
   const settings = await getSettings();
   publish({ settings, loading: false });
+}
+
+/**
+ * Ask Steam what language it is in, once.
+ *
+ * Only the frontend can answer this -- the backend cannot see the
+ * client -- so the resolved code travels with each lookup rather than
+ * being persisted. A failure is not worth retrying or reporting: the
+ * effective language simply stays English.
+ */
+export async function detectClientLanguage(): Promise<void> {
+  const clientLanguage = await readClientLanguage();
+  if (clientLanguage !== state.clientLanguage) publish({ clientLanguage });
+}
+
+/** The store language to send with a lookup, given current state. */
+export function currentLanguage(): string {
+  return effectiveLanguage(state.settings.language, state.clientLanguage);
 }
 
 /**

@@ -17,7 +17,7 @@
  * a DOM.
  */
 
-import type { OverlaySize } from "./types";
+import type { OverlayPosition, OverlaySize } from "./types";
 
 /** The pane width the sizes below were originally chosen against. */
 export const BASELINE_PANE_WIDTH = 870;
@@ -140,4 +140,53 @@ export function paneInsets(pane: { top: number; bottom: number } | null): {
     top: Math.max(pane?.top ?? 0, FALLBACK_PANE_TOP),
     bottom: Math.max(pane?.bottom ?? 0, FALLBACK_PANE_BOTTOM),
   };
+}
+
+// ---------------------------------------------------------------------
+// Dynamic positioning
+// ---------------------------------------------------------------------
+
+/** Which half of the pane something is in. */
+export type PaneSide = "left" | "right";
+
+/**
+ * How far past the middle the highlight must travel before the card
+ * moves, as a fraction of pane width either side of centre.
+ *
+ * Without a dead band, scrolling along a row that straddles the middle
+ * would flip the card on every step -- far more distracting than the
+ * overlap it exists to avoid. Roughly a capsule and a half on a Deck.
+ */
+export const SIDE_DEAD_ZONE = 0.08;
+
+/**
+ * Which side of the pane the highlight is on, given where it was.
+ *
+ * Inside the dead band the previous answer stands, which is what makes
+ * this stable; `current` is null only before anything has been
+ * highlighted, and then the midpoint decides.
+ */
+export function nextSide(current: PaneSide | null, centreFraction: number): PaneSide {
+  if (!Number.isFinite(centreFraction)) return current ?? "left";
+  if (centreFraction < 0.5 - SIDE_DEAD_ZONE) return "left";
+  if (centreFraction > 0.5 + SIDE_DEAD_ZONE) return "right";
+  return current ?? (centreFraction <= 0.5 ? "left" : "right");
+}
+
+/**
+ * The corner the card should actually use.
+ *
+ * Dynamic positioning moves the card *away* from the highlighted game,
+ * so it never covers what you are looking at. Only the horizontal half
+ * is decided for you: the vertical half stays wherever the user put it,
+ * because that is a taste preference rather than an occlusion problem.
+ */
+export function resolvePosition(
+  position: OverlayPosition,
+  side: PaneSide | null,
+  dynamic: boolean,
+): OverlayPosition {
+  if (!dynamic || side === null) return position;
+  const vertical = position.startsWith("top") ? "top" : "bottom";
+  return `${vertical}-${side === "left" ? "right" : "left"}` as OverlayPosition;
 }

@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 
 import { cacheStats, clearCache } from "../api";
 import { t } from "../i18n";
+import { AUTO, LANGUAGES } from "../languages";
 import { updateSettings, usePluginState } from "../store";
 import type { CacheStats, OverlayPosition, OverlaySize, PreviewMode } from "../types";
 
@@ -42,6 +43,21 @@ const SIZE_OPTIONS: { data: OverlaySize; label: string }[] = [
   { data: "l", label: "settings.sizeLarge" },
 ];
 
+/**
+ * "Match Steam" first, then Valve's languages by English name. The codes
+ * are Steam's own, so whatever the user picks can go straight to the
+ * store API.
+ */
+const LANGUAGE_OPTIONS: { data: string; label: string }[] = [
+  { data: AUTO, label: "settings.languageAuto" },
+  ...LANGUAGES.map(({ code, label }) => ({ data: code, label })),
+];
+
+/** English name for a Steam language code, or the code itself. */
+function languageLabel(code: string): string {
+  return LANGUAGES.find((language) => language.code === code)?.label ?? code;
+}
+
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -49,7 +65,7 @@ function formatBytes(bytes: number): string {
 }
 
 export function SettingsPanel() {
-  const { settings, focus, loading } = usePluginState();
+  const { settings, focus, loading, clientLanguage } = usePluginState();
   const [stats, setStats] = useState<CacheStats | null>(null);
   const [clearing, setClearing] = useState(false);
   const [cleared, setCleared] = useState<number | null>(null);
@@ -185,6 +201,16 @@ export function SettingsPanel() {
         </PanelSectionRow>
 
         <PanelSectionRow>
+          <ToggleField
+            label={t("settings.dynamicPosition")}
+            description={t("settings.dynamicPositionDescription")}
+            checked={settings.dynamic_position}
+            disabled={loading || !settings.enabled}
+            onChange={(dynamic_position) => void updateSettings({ dynamic_position })}
+          />
+        </PanelSectionRow>
+
+        <PanelSectionRow>
           <DropdownItem
             label={t("settings.size")}
             rgOptions={SIZE_OPTIONS.map(({ data, label }) => ({ data, label: t(label) }))}
@@ -201,6 +227,30 @@ export function SettingsPanel() {
             checked={settings.data_saver}
             disabled={loading || !settings.enabled}
             onChange={(data_saver) => void updateSettings({ data_saver })}
+          />
+        </PanelSectionRow>
+
+        <PanelSectionRow>
+          <DropdownItem
+            label={t("settings.language")}
+            description={
+              settings.language === AUTO
+                ? clientLanguage
+                  ? t("settings.languageAutoDetected", {
+                      language: languageLabel(clientLanguage),
+                    })
+                  : t("settings.languageAutoUnknown")
+                : t("settings.languageDescription")
+            }
+            rgOptions={LANGUAGE_OPTIONS.map(({ data, label }) => ({
+              data,
+              // Valve's own language names are already in English and
+              // are not ours to translate; only "Match Steam" is a key.
+              label: data === AUTO ? t(label) : label,
+            }))}
+            selectedOption={settings.language}
+            disabled={loading || !settings.enabled}
+            onChange={(option) => void updateSettings({ language: String(option.data) })}
           />
         </PanelSectionRow>
       </PanelSection>

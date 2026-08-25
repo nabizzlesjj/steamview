@@ -13,7 +13,7 @@ place it makes a security trade-off you should know about.
 | **Filesystem reads** | Its own settings and cache. |
 | **Process execution** | None. No `subprocess`, no `os.system`, no shell. |
 | **Dynamic code** | None. No `eval`, no `exec`, no `pickle`, no `innerHTML`, no `dangerouslySetInnerHTML`. |
-| **Steam data read** | Game name, appid and artwork URL of whichever library entry is highlighted, via Steam's in-client `appStore`. |
+| **Steam data read** | Game name, appid and artwork URL of whichever library entry is highlighted, via Steam's in-client `appStore`; the client's UI language, via `SteamClient.Settings.GetCurrentLanguage()`. |
 | **Network** | `store.steampowered.com` and `*.steamstatic.com`. Nothing else. |
 
 The backend is Python standard library only — no third-party runtime
@@ -75,7 +75,11 @@ if that would be useful, it is a reasonable thing to add.
   browsed. Decky rotates it.
 - **Sent off-device:** the appid, or the display name of a non-Steam
   shortcut, to Steam's public store API — the same request your browser
-  makes visiting a store page. No identifiers accompany it.
+  makes visiting a store page. Since 1.2.0 the request also carries a
+  **language code** (`l=brazilian`, say), which is either the language
+  you picked or the one Steam is already set to. It is one of 29 fixed
+  values, it is exactly what your browser sends when you view a store
+  page in that language, and no identifiers accompany either.
 
 ## Reporting a vulnerability
 

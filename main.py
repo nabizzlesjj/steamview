@@ -19,7 +19,7 @@ import decky
 # path for us; the explicit insert keeps direct execution working too.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "py_modules"))
 
-from steamview import compat  # noqa: E402
+from steamview import compat, languages  # noqa: E402
 from steamview.cache import MediaCache  # noqa: E402
 from steamview.resolver import MediaResolver  # noqa: E402
 from steamview.settings import SettingsStore  # noqa: E402
@@ -49,7 +49,21 @@ class Plugin:
     # Media
     # ------------------------------------------------------------------
 
-    async def get_media_for(self, entry=None):
+    def _language(self, requested):
+        """The store language for this call.
+
+        The frontend resolves ``auto`` against the Steam client and sends
+        the answer, because only it can see the client. Whatever arrives
+        is validated against a fixed allowlist before it can reach a URL;
+        the persisted setting is the fallback, and English the floor.
+        """
+        try:
+            configured = self.settings.get().get("language")
+        except Exception:  # noqa: BLE001
+            configured = None
+        return languages.resolve(requested, configured)
+
+    async def get_media_for(self, entry=None, language=None):
         """Resolve media for one library entry.
 
         Returns the media object described in ARCHITECTURE.md, or a well-formed
@@ -57,7 +71,9 @@ class Plugin:
         """
         try:
             data_saver = bool(self.settings.get().get("data_saver"))
-            return await self.resolver.get_media(entry, data_saver=data_saver)
+            return await self.resolver.get_media(
+                entry, data_saver=data_saver, language=self._language(language)
+            )
         except Exception as exc:  # noqa: BLE001
             decky.logger.warning("get_media_for failed: %s", exc)
             return {
@@ -74,11 +90,13 @@ class Plugin:
                 "note": "backend-error",
             }
 
-    async def prefetch(self, entries=None):
+    async def prefetch(self, entries=None, language=None):
         """Warm the cache for entries near the focused one. Best effort."""
         try:
             data_saver = bool(self.settings.get().get("data_saver"))
-            return await self.resolver.prefetch(entries, data_saver=data_saver)
+            return await self.resolver.prefetch(
+                entries, data_saver=data_saver, language=self._language(language)
+            )
         except Exception as exc:  # noqa: BLE001
             decky.logger.debug("prefetch failed: %s", exc)
             return 0

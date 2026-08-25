@@ -1,8 +1,9 @@
 # On-device test plan
 
 Everything that can be verified without hardware already is: the backend
-resolver has 392 `pytest` cases with all network mocked, the overlay's
-sizing arithmetic is tested across Deck, 1080p, 1440p and 4K viewports,
+resolver has 439 `pytest` cases with all network mocked, the overlay's
+sizing and placement are tested across Deck, 1080p, 1440p and 4K
+viewports,
 and the frontend typechecks, lints and builds clean in CI. What none of
 that can prove is whether the focus hook actually fires on a real Deck,
 whether the microtrailer URL exists, and whether the pane Steam actually
@@ -236,6 +237,8 @@ Change each one, confirm the effect, then **fully restart Steam**
 | **Position** | Preview moves to each of the four corners |
 | **Size** | Small / Medium / Large visibly differ |
 | **Data saver** → on | No video in any mode; screenshots only. Autoplay/Muted/Loop grey out. |
+| **Dynamic positioning** | See Test 9 |
+| **Metadata language** | See Test 9 |
 | **Clear cache** | Button reports how many entries went; next highlight re-fetches |
 
 Also confirm: with **Preview mode = Off** or **Data saver = on**, the
@@ -272,7 +275,51 @@ be left stranded over the chrome.
 
 ---
 
-## Test 9: battery and thermals
+## Test 9: dynamic positioning and language
+
+Both are off/automatic by default, so this only matters if you turn them
+on — but both are new in 1.2.0 and neither has been on hardware.
+
+### Dynamic positioning
+
+Turn **Dynamic positioning** on, then scroll along a row of games.
+
+- [ ] Highlighting a game on the **left** puts the card on the **right**,
+      and vice versa
+- [ ] The card never covers the game you are actually highlighting
+- [ ] Your chosen **top/bottom** half is kept — only the side changes
+- [ ] Scrolling slowly across the middle of the grid moves the card
+      **once**, cleanly. It must not flick back and forth between two
+      adjacent games.
+
+> The flicker case is the one worth being fussy about: there is a
+> deliberate dead band around the centre to prevent it, and if you can
+> still provoke it, `SIDE_DEAD_ZONE` in `overlayGeometry.ts` is the dial.
+
+### Language
+
+With **Metadata language** on its default of **Match Steam**, the
+description under the preview should already be in whatever language
+Steam's UI is in. The panel says which language it detected.
+
+- [ ] Pick a language explicitly (say **Portuguese (Brazil)**). Highlight
+      a game you have not viewed since changing it — the title,
+      description and genres come back in that language.
+- [ ] Switch back to **English** and highlight the same game: it changes
+      back **immediately**, not minutes later. Entries are cached per
+      language, so both are already on disk.
+- [ ] A game with no translation shows English rather than nothing.
+      Steam falls back on its own; the preview should look normal.
+- [ ] A non-Steam shortcut still matches. Matching deliberately stays in
+      English — if turning on a language *loses* previews for imported
+      games that is a real bug, and the log line names the language.
+
+**Backend log:** each resolution line now carries the language, e.g.
+`Cyberpunk 2077 (steam, brazilian) -> source=appdetails …`
+
+---
+
+## Test 10: battery and thermals
 
 Worth a single longer pass, since previews decode video continuously.
 
@@ -288,7 +335,7 @@ levers to reach for.
 
 ---
 
-## Test 10: it never breaks the library
+## Test 11: it never breaks the library
 
 The non-negotiable. Confirm all of these hold:
 

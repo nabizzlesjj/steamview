@@ -25,6 +25,8 @@ import hashlib
 from dataclasses import dataclass, field
 from typing import Any
 
+from .languages import DEFAULT_LANGUAGE
+
 #: ``EAppType.Shortcut`` from Steam's client enums.
 APP_TYPE_SHORTCUT = 1073741824
 
@@ -48,6 +50,10 @@ class LibraryEntry:
     hero_url: str | None = None
     capsule_url: str | None = None
     extra_art: tuple[str, ...] = field(default_factory=tuple)
+    #: Store language this entry will be resolved in. Part of the cache
+    #: key, since the same game in two languages is two different
+    #: payloads.
+    language: str = DEFAULT_LANGUAGE
 
     @property
     def is_shortcut(self) -> bool:
@@ -61,11 +67,22 @@ class LibraryEntry:
         Shortcuts key by a hash of their display name, because the
         synthetic appid is machine-local and changes if the shortcut is
         recreated -- but the name is what we actually resolve against.
+
+        A non-English language is suffixed, because the cached payload
+        holds a localised title, description and genres: without this,
+        switching language would keep serving the old one until the entry
+        expired. English is left unsuffixed on purpose, so caches written
+        before languages existed stay valid rather than all missing at
+        once on upgrade.
         """
         if self.kind == ENTRY_KIND_STEAM:
-            return f"app:{self.appid}"
-        digest = hashlib.sha1(normalize_name(self.name).encode("utf-8")).hexdigest()[:16]
-        return f"shortcut:{digest}"
+            base = f"app:{self.appid}"
+        else:
+            digest = hashlib.sha1(normalize_name(self.name).encode("utf-8")).hexdigest()[:16]
+            base = f"shortcut:{digest}"
+        if self.language and self.language != DEFAULT_LANGUAGE:
+            return f"{base}@{self.language}"
+        return base
 
 
 def normalize_name(name: str) -> str:
@@ -112,11 +129,15 @@ def detect_kind(appid: int, app_type: Any, is_shortcut_flag: Any) -> str:
     return ENTRY_KIND_STEAM
 
 
-def parse_entry(raw: Any) -> LibraryEntry | None:
+def parse_entry(raw: Any, language: str = DEFAULT_LANGUAGE) -> LibraryEntry | None:
     """Validate a frontend-supplied entry dict.
 
     Returns ``None`` when the payload is unusable -- callers treat that as
     "no media", never as an error.
+
+    ``language`` is supplied by the caller rather than read from ``raw``:
+    it is a property of the *request*, not of the library item, and the
+    frontend is the only side that can resolve it.
     """
     if not isinstance(raw, dict):
         return None
@@ -145,4 +166,5 @@ def parse_entry(raw: Any) -> LibraryEntry | None:
         hero_url=_coerce_url(raw.get("hero_url")),
         capsule_url=_coerce_url(raw.get("capsule_url")),
         extra_art=extra_urls,
+        language=language or DEFAULT_LANGUAGE,
     )

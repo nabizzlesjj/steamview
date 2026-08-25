@@ -13,6 +13,7 @@ import os
 from typing import Any
 
 from .compat import logger
+from .languages import AUTO, SETTING_CHOICES
 
 PREVIEW_MODES = ("trailer", "screenshots", "off")
 POSITIONS = ("top-left", "top-right", "bottom-left", "bottom-right")
@@ -37,6 +38,13 @@ DEFAULTS: dict[str, Any] = {
     "position": "bottom-right",
     "size": "m",
     "data_saver": False,
+    #: Flip the overlay to the side of the screen the highlighted game is
+    #: *not* on, so the card never covers what you are looking at.
+    "dynamic_position": False,
+    #: Store language for titles, descriptions and genres. ``auto`` means
+    #: "whatever Steam is set to", resolved in the frontend since only it
+    #: can ask the client.
+    "language": AUTO,
 }
 
 SETTINGS_FILENAME = "settings.json"
@@ -95,6 +103,10 @@ def validate(raw: Any) -> dict[str, Any]:
         "position": _as_choice(source.get("position"), POSITIONS, DEFAULTS["position"]),
         "size": _as_choice(source.get("size"), SIZES, DEFAULTS["size"]),
         "data_saver": _as_bool(source.get("data_saver"), DEFAULTS["data_saver"]),
+        "dynamic_position": _as_bool(
+            source.get("dynamic_position"), DEFAULTS["dynamic_position"]
+        ),
+        "language": _as_choice(source.get("language"), SETTING_CHOICES, DEFAULTS["language"]),
     }
 
 

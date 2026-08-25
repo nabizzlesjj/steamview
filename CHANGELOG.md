@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-08-25
+
+Two features suggested by players after the 1.1.0 release.
+
+### Added
+
+- **Dynamic positioning** (off by default). The preview moves to the
+  opposite side of the screen from the highlighted game, so it never
+  covers what you are looking at. The vertical half stays wherever you
+  put it -- that is taste, not occlusion. A dead band around the middle
+  of the grid stops the card flicking side to side while you scroll
+  along a row that straddles the centre.
+- **Metadata language.** The title, description and genres under the
+  preview can be shown in any of the 29 languages Steam's store
+  supports. The default, **Match Steam**, asks the client what language
+  it is set to and uses that, so it is correct without being configured;
+  any language can also be picked explicitly.
+
+### Changed
+
+- Cached entries are keyed by language, so switching language takes
+  effect on the next preview rather than when the old entry expires.
+  English keys are unchanged, so upgrading does not invalidate a cache
+  that is already warm.
+
 ## [1.1.0] - 2026-08-25
 
 Game Mode is not only a Steam Deck. This release makes the overlay sit

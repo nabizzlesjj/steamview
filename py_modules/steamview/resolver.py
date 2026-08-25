@@ -24,6 +24,7 @@ from .cache import MediaCache
 from .compat import logger
 from .entries import ENTRY_KIND_STEAM, LibraryEntry, parse_entry
 from .http import url_exists
+from .languages import DEFAULT_LANGUAGE
 
 #: Ceiling on simultaneous outbound requests, so a fast scroll or a
 #: prefetch burst cannot saturate the Deck's connection.
@@ -54,10 +55,15 @@ class MediaResolver:
     # Public API
     # ------------------------------------------------------------------
 
-    async def get_media(self, raw_entry: Any, data_saver: bool = False) -> dict[str, Any]:
+    async def get_media(
+        self,
+        raw_entry: Any,
+        data_saver: bool = False,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> dict[str, Any]:
         """Resolve one entry. Never raises."""
         try:
-            entry = parse_entry(raw_entry)
+            entry = parse_entry(raw_entry, language)
         except Exception as exc:  # noqa: BLE001 - defensive
             logger.warning("steamview.resolver: unparseable entry: %s", exc)
             entry = None
@@ -82,7 +88,12 @@ class MediaResolver:
         finally:
             self._inflight.pop(entry.cache_key, None)
 
-    async def prefetch(self, raw_entries: Any, data_saver: bool = False) -> int:
+    async def prefetch(
+        self,
+        raw_entries: Any,
+        data_saver: bool = False,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> int:
         """Warm the cache for neighbours of the focused entry.
 
         Returns how many entries were actually dispatched. Errors in any
@@ -95,7 +106,7 @@ class MediaResolver:
         seen: set[str] = set()
         for raw in raw_entries[:MAX_PREFETCH]:
             try:
-                entry = parse_entry(raw)
+                entry = parse_entry(raw, language)
             except Exception:  # noqa: BLE001
                 continue
             if entry is None or entry.cache_key in seen:
@@ -145,9 +156,10 @@ class MediaResolver:
         # a Deck it is the difference between "the preview is broken" and
         # a specific, fixable cause.
         logger.info(
-            "steamview: %s (%s) -> source=%s appid=%s trailer=%s screenshots=%d hero=%s%s",
+            "steamview: %s (%s, %s) -> source=%s appid=%s trailer=%s screenshots=%d hero=%s%s",
             entry.name or entry.cache_key,
             entry.kind,
+            entry.language,
             result.source,
             result.resolved_appid,
             result.trailer_kind or "none",
@@ -179,7 +191,7 @@ class MediaResolver:
         return self._probe
 
     def _resolve_native(self, entry: LibraryEntry, data_saver: bool) -> media.MediaResult:
-        payload = self.store.fetch_appdetails(entry.appid)
+        payload = self.store.fetch_appdetails(entry.appid, language=entry.language)
         if payload is None:
             return media.build_from_art(
                 key=entry.cache_key,
@@ -203,7 +215,7 @@ class MediaResolver:
     def _resolve_shortcut(self, entry: LibraryEntry, data_saver: bool) -> media.MediaResult:
         appid = self._match_shortcut_to_appid(entry.name)
         if appid is not None:
-            payload = self.store.fetch_appdetails(appid)
+            payload = self.store.fetch_appdetails(appid, language=entry.language)
             if payload is not None:
                 return media.build_from_appdetails(
                     payload,

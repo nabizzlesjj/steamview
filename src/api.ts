@@ -30,9 +30,13 @@ export function emptyMedia(key = "", note: string | null = null): MediaResult {
   };
 }
 
-export async function getMediaFor(entry: LibraryEntry): Promise<MediaResult> {
+export async function getMediaFor(entry: LibraryEntry, language: string): Promise<MediaResult> {
   try {
-    const result = await call<[entry: LibraryEntry], MediaResult>("get_media_for", entry);
+    const result = await call<[entry: LibraryEntry, language: string], MediaResult>(
+      "get_media_for",
+      entry,
+      language,
+    );
     return result ?? emptyMedia("", "no-response");
   } catch (error) {
     console.warn("[SteamView] get_media_for failed:", error);
@@ -40,9 +44,15 @@ export async function getMediaFor(entry: LibraryEntry): Promise<MediaResult> {
   }
 }
 
-export async function prefetch(entries: LibraryEntry[]): Promise<number> {
+export async function prefetch(entries: LibraryEntry[], language: string): Promise<number> {
   try {
-    return (await call<[entries: LibraryEntry[]], number>("prefetch", entries)) ?? 0;
+    return (
+      (await call<[entries: LibraryEntry[], language: string], number>(
+        "prefetch",
+        entries,
+        language,
+      )) ?? 0
+    );
   } catch {
     // Prefetching is an optimisation; a failure is not worth reporting.
     return 0;

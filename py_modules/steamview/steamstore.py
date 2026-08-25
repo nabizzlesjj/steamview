@@ -16,6 +16,7 @@ from typing import Any
 
 from . import http
 from .compat import logger
+from .languages import DEFAULT_LANGUAGE
 
 APPDETAILS_URL = "https://store.steampowered.com/api/appdetails"
 STORESEARCH_URL = "https://store.steampowered.com/api/storesearch/"
@@ -46,13 +47,28 @@ def parse_storesearch(payload: Any) -> list[dict[str, Any]]:
     return [item for item in items if isinstance(item, dict)]
 
 
-def fetch_appdetails(appid: int, timeout: float = http.DEFAULT_TIMEOUT) -> dict[str, Any] | None:
-    """Store metadata for ``appid``, or ``None``."""
+def fetch_appdetails(
+    appid: int,
+    timeout: float = http.DEFAULT_TIMEOUT,
+    language: str = DEFAULT_LANGUAGE,
+) -> dict[str, Any] | None:
+    """Store metadata for ``appid``, or ``None``.
+
+    ``language`` is a Steam store language code and is what localises the
+    name, description and genres the overlay shows. Callers are expected
+    to have put it through :func:`steamview.languages.normalise` already;
+    this asserts nothing, but an unknown code just yields English.
+
+    ``cc`` stays at ``us`` deliberately. It selects a *store region*, not
+    a language, and its visible effect here would be to make
+    region-locked titles start returning ``success: false`` -- trading a
+    working preview for nothing, since the plugin never shows a price.
+    """
     if not isinstance(appid, int) or appid <= 0:
         return None
     payload = http.get_json(
         APPDETAILS_URL,
-        {"appids": appid, "l": "english", "cc": "us"},
+        {"appids": appid, "l": language or DEFAULT_LANGUAGE, "cc": "us"},
         timeout=timeout,
     )
     data = parse_appdetails(payload, appid)
@@ -62,7 +78,16 @@ def fetch_appdetails(appid: int, timeout: float = http.DEFAULT_TIMEOUT) -> dict[
 
 
 def search_store(term: str, timeout: float = http.DEFAULT_TIMEOUT) -> list[dict[str, Any]]:
-    """Store search results for ``term``, best-effort."""
+    """Store search results for ``term``, best-effort.
+
+    Always searched in English, even when the user reads the overlay in
+    another language. This is matching, not presentation: the name being
+    matched comes from a non-Steam shortcut, where launchers write the
+    canonical (usually English) title. Searching in the display language
+    would return localised names for the *same* games and drag the
+    similarity score down, losing matches to no benefit -- the overlay is
+    localised afterwards, by the appdetails lookup.
+    """
     query = str(term or "").strip()
     if not query:
         return []

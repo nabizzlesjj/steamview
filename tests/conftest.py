@@ -91,9 +91,13 @@ class FakeStore:
         self.searches = searches or {}
         self.appdetails_calls: list[int] = []
         self.search_calls: list[str] = []
+        #: (appid, language) per call, so tests can assert the language
+        #: actually reached the store rather than being dropped silently.
+        self.appdetails_languages: list[tuple[int, str]] = []
 
-    def fetch_appdetails(self, appid, timeout=None):
+    def fetch_appdetails(self, appid, timeout=None, language="english"):
         self.appdetails_calls.append(appid)
+        self.appdetails_languages.append((appid, language))
         return self.appdetails.get(appid)
 
     def search_store(self, term, timeout=None):

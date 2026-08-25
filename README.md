@@ -28,7 +28,9 @@ Each step falls through to the next, so the card is never blank and never
 broken. Beneath the media sits the game's **title**, **genres** and the
 first two lines of its **store description** — each row optional, so a
 shortcut with no store match still gets a labelled preview rather than an
-anonymous video.
+anonymous video. That text can be shown in any of the 29 languages
+Steam's store supports, and by default follows whatever language Steam
+itself is set to.
 
 The preview covers only the library grid. Opening a game's page hides it,
 since Steam already fills that screen with the game's own artwork.
@@ -144,8 +146,10 @@ persist across restarts.
 | **Muted** | On | Recommended — Steam's own UI sounds keep playing underneath. |
 | **Loop** | On | Repeat the trailer while the game stays highlighted. |
 | **Overlay position** | Bottom right | Which corner the card sits in. |
+| **Dynamic positioning** | Off | Move the card to the opposite side of the screen from the highlighted game, so it never covers what you're looking at. Your chosen top/bottom half is kept. |
 | **Overlay size** | Medium | Small / Medium / Large. |
 | **Data saver** | Off | Skip video entirely; screenshots only. |
+| **Metadata language** | Match Steam | Language for the title, description and genres. *Match Steam* follows the client's own language setting; all 29 store languages can also be picked explicitly. |
 | **Clear cache** | — | Delete cached media metadata. Use if a preview looks wrong or stale. |
 
 ---
@@ -195,8 +199,8 @@ pnpm install
 | `pnpm run watch` | Rebuild on change |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run lint` | ESLint over `src/` |
-| `pnpm run test:fe` | Overlay sizing tests, across Deck / 1080p / 1440p / 4K |
-| `pytest` | Backend test suite (392 tests) |
+| `pnpm run test:fe` | Overlay geometry and language tests |
+| `pytest` | Backend test suite (439 tests) |
 | `make check` | Everything CI runs |
 | `make package` | Build the installable ZIP into `out/` |
 | `make licenses` | Regenerate `THIRD_PARTY_LICENSES.md` |
@@ -230,12 +234,14 @@ py_modules/steamview/ all backend logic, unit tested
   matching.py           name normalisation and match ranking
   steamstore.py         the two store endpoints
   media.py              appdetails -> media object
+  languages.py          Steam's store language codes, and their validation
   cache.py              memory + disk TTL cache
   resolver.py           Path A / Path B orchestration
 src/                  frontend
   steam/bindings.ts     everything Steam-specific -- start here after a SteamOS update
   steam/focus.ts        the focus listener and its failure policy
-  overlayGeometry.ts    display-independent card sizing, pure and testable
+  overlayGeometry.ts    card sizing and placement, pure and testable
+  languages.ts          Steam's store language codes (mirrors the Python module)
   components/           overlay and settings UI
 tests/                pytest suite
   frontend/             overlay sizing tests (node's own runner, no framework)

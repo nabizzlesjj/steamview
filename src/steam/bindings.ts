@@ -31,6 +31,7 @@ import {
   getReactInstance,
 } from "@decky/ui";
 
+import { normaliseLanguage } from "../languages";
 import type { EntryKind, LibraryEntry } from "../types";
 
 // ---------------------------------------------------------------------
@@ -162,6 +163,8 @@ export function isInScope(element: Element | null): boolean {
 export interface LibraryPane {
   top: number;
   bottom: number;
+  /** Distance from the viewport's left edge, for pane-relative maths. */
+  left: number;
   width: number;
   height: number;
 }
@@ -220,7 +223,13 @@ export function measureLibraryPane(doc: Document | null | undefined): LibraryPan
     // it is; refuse rather than produce negative space.
     if (top + bottom >= viewportHeight) continue;
 
-    return { top, bottom, width: Math.round(rect.width), height: Math.round(rect.height) };
+    return {
+      top,
+      bottom,
+      left: Math.round(rect.left),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    };
   }
 
   return null;
@@ -369,4 +378,85 @@ export function entryForElement(element: Element | null): LibraryEntry | null {
   if (!isInScope(element)) return null;
   const appid = findAppIdForElement(element);
   return appid === null ? null : buildEntry(appid);
+}
+
+// ---------------------------------------------------------------------
+// The highlighted item's position
+// ---------------------------------------------------------------------
+
+/**
+ * Where the focused capsule sits across the pane, as a 0..1 fraction --
+ * 0 is the left edge, 1 the right.
+ *
+ * This is what lets the overlay move out of the way of the game you are
+ * actually looking at. It reads `document.activeElement` rather than
+ * anything of Steam's, because by the time this is called focus has been
+ * still long enough to settle, and the focused element *is* the capsule.
+ * The overlay itself is `pointer-events: none` and never focusable, so
+ * it can never be what we measure.
+ *
+ * Returns null when there is nothing sensible to measure, which the
+ * caller treats as "leave the overlay where the user put it".
+ */
+export function measureFocusCentre(
+  doc: Document | null | undefined,
+  pane: LibraryPane | null,
+): number | null {
+  if (!doc?.defaultView) return null;
+
+  let rect: DOMRect | undefined;
+  try {
+    const element = doc.activeElement;
+    // `body` means nothing is really focused -- a fallback-poll state,
+    // not a highlighted game.
+    if (!element || element === doc.body) return null;
+    rect = element.getBoundingClientRect();
+  } catch {
+    return null;
+  }
+  if (!rect || rect.width <= 0) return null;
+
+  // Measured against the pane, not the viewport: a pane that is inset
+  // from the left edge would otherwise push every fraction rightwards
+  // and bias which side the card picks.
+  const paneLeft = pane?.left ?? 0;
+  const paneWidth = pane?.width ?? doc.defaultView.innerWidth;
+  if (!(paneWidth > 0)) return null;
+
+  const centre = (rect.left + rect.right) / 2 - paneLeft;
+  if (!Number.isFinite(centre)) return null;
+
+  return Math.min(1, Math.max(0, centre / paneWidth));
+}
+
+// ---------------------------------------------------------------------
+// The client's language
+// ---------------------------------------------------------------------
+
+interface SteamSettingsLanguageApi {
+  Settings?: { GetCurrentLanguage?: () => Promise<string> };
+}
+
+/**
+ * The language Steam's own UI is set to, as a store API language code.
+ *
+ * Steam answers in its own vocabulary -- "brazilian", "koreana",
+ * "schinese" -- which is exactly the vocabulary the store API's `l=`
+ * parameter takes, so nothing needs translating between the two. The
+ * answer is still validated before use: it ends up in a URL.
+ *
+ * Returns null if Steam will not say, in which case the caller keeps
+ * English rather than guessing.
+ */
+export async function readClientLanguage(): Promise<string | null> {
+  try {
+    const client = (globalThis as { SteamClient?: SteamSettingsLanguageApi }).SteamClient;
+    const settings = client?.Settings;
+    const get = settings?.GetCurrentLanguage;
+    if (typeof get !== "function") return null;
+    return normaliseLanguage(await get.call(settings));
+  } catch (error) {
+    console.warn("[SteamView] could not read Steam's language:", error);
+    return null;
+  }
 }

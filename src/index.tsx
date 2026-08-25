@@ -10,7 +10,8 @@
  *    fails, the plugin still loads with settings intact and the overlay
  *    simply absent.
  *
- * 2. Load persisted settings from the backend.
+ * 2. Load persisted settings from the backend, and ask Steam what
+ *    language it is in.
  *
  * The risky work -- finding the highlighted game -- lives in
  * `steam/focus.ts` and is started by the overlay itself, so its failure
@@ -24,7 +25,7 @@ import { FaPhotoVideo } from "react-icons/fa";
 import { PreviewOverlay } from "./components/PreviewOverlay";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { initI18n, t } from "./i18n";
-import { loadSettings, setFocusStatus } from "./store";
+import { detectClientLanguage, loadSettings, setFocusStatus } from "./store";
 
 /** Decky identifies global components by name; must be unique. */
 const OVERLAY_COMPONENT_NAME = "SteamViewPreviewOverlay";
@@ -33,8 +34,11 @@ export default definePlugin(() => {
   initI18n();
 
   // Fire and forget: the panel and overlay both render sensible defaults
-  // until this resolves.
+  // until these resolve. The language is asked for once here rather than
+  // per lookup -- it only changes when the user changes Steam's own
+  // setting, which restarts the client anyway.
   void loadSettings();
+  void detectClientLanguage();
 
   let overlayRegistered = false;
   try {

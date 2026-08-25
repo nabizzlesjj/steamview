@@ -159,6 +159,31 @@ The pane is re-measured on window resize (docking, undocking, a
 resolution change) and once per settled focus, which is the cheapest
 moment at which the container is certainly mounted.
 
+#### Dynamic positioning
+
+Optionally the card moves to the side of the pane the highlighted game is
+*not* on, so it never covers what the user is looking at.
+
+`bindings.measureFocusCentre` reads the focused element's rect and
+returns its centre as a 0..1 fraction of the pane — measured against the
+pane rather than the viewport, since a pane inset from the left edge
+would otherwise bias every fraction rightwards. It reads
+`document.activeElement`, which is safe here for the same reason the
+overlay cannot interfere with navigation: the card is `pointer-events:
+none` and never focusable, so it can never be the thing measured.
+
+It is sampled at the *settle* point rather than on every focus event.
+That is the moment the highlight has stopped moving, so the focused
+element really is the capsule the user landed on, and it costs nothing
+extra — the pane is being measured there anyway.
+
+`overlayGeometry.nextSide` then applies hysteresis: a dead band of ±0.08
+around the middle in which the previous answer stands. Without it,
+scrolling along a row that straddles the centre would flip the card on
+every step, which is far more distracting than the overlap the feature
+exists to prevent. Only the horizontal half is decided; the vertical half
+is the user's setting, because that is taste rather than occlusion.
+
 `tests/frontend/overlayGeometry.test.mjs` runs the arithmetic across
 Deck, 1080p, 1440p and 4K viewports and asserts the card never outgrows
 its pane, never shrinks as the pane grows, and never inverts the size
@@ -215,6 +240,43 @@ In order:
 If Valve moves or removes microtrailers, step 1 stops matching and step 2
 takes over with no code change.
 
+### Metadata language
+
+The title, description and genres come from `appdetails`, which localises
+them via its `l=` parameter. That parameter does not take ISO codes: it
+takes Valve's own short names — `brazilian`, not `pt-BR`; `koreana`, not
+`ko`; `schinese`, not `zh-Hans`. A wrong code does not error, it silently
+returns English, which is indistinguishable from the feature not working.
+
+What makes this small is that Steam's client speaks the same vocabulary.
+`SteamClient.Settings.GetCurrentLanguage()` returns one of those exact
+strings, so "match Steam" is a pass-through rather than a mapping table
+— and a mapping table is precisely the thing that would rot.
+
+The value is still validated against a fixed allowlist of the 29 codes on
+**both** sides: the frontend so the dropdown cannot offer a dead option,
+the backend because it is the side that puts the value in a URL. Anything
+unrecognised falls back to English rather than being guessed at. A test
+asserts the two lists are identical, since a code offered in one and
+rejected by the other is a silent dead end.
+
+Resolution order for a lookup: the language the frontend resolved (it
+asked the client, so it wins), then the persisted setting, then English.
+The backend never sees `auto` as a language — only the frontend can
+resolve it, because only the frontend can see the client.
+
+**Search stays English.** Path B matches a shortcut's display name, which
+launchers write in the canonical (usually English) title. Searching
+`storesearch` in the display language would return localised names for
+the same games and drag the similarity score below the 0.82 threshold,
+losing matches for nothing. Matching is not presentation: the game is
+found in English, then described in the user's language.
+
+Cache keys carry the language, because the cached payload holds a
+localised title, description and genres — without it, switching language
+would keep serving the old one until the entry expired. English keys are
+left unsuffixed so that upgrading does not invalidate a warm cache.
+
 ### Networking
 
 SteamOS ships an outdated CA bundle, and certificate verification fails
@@ -263,6 +325,8 @@ trailer kind and screenshot count.
 | 4 | Steam rate-limits `storesearch` on a large library | 3 concurrent max, 7-day cache, backoff honouring `Retry-After` |
 | 5 | Video decode costs battery | 480p cap, muted, autoplay delay, teardown on blur, data-saver mode |
 | 6 | A SteamOS update breaks the hook entirely | Feature flag: overlay off, library and settings untouched |
+| 7 | Valve renames `GetCurrentLanguage` or its return values | Validated against an allowlist; an unknown answer falls back to English, so the preview keeps working in English rather than breaking |
+| 8 | Steam's library layout changes so the focused element is not the capsule | Dynamic positioning degrades to the user's static corner; nothing else depends on it |
 
 ---
 
