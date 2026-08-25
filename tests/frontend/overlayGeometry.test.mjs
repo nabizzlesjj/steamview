@@ -9,6 +9,10 @@
  * Plain JavaScript against the compiled module, so the suite needs no
  * test framework and no type packages -- `pnpm run test:fe` compiles
  * `src/overlayGeometry.ts` first. See tsconfig.test.json.
+ *
+ * The script passes a shell-expanded glob rather than one node expands
+ * itself: node only learned to glob `--test` arguments in v21, and CI
+ * runs 20.
  */
 
 import assert from "node:assert/strict";

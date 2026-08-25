@@ -163,7 +163,7 @@ logged.
 
 ## Development
 
-**Prerequisites:** Node 18+ and pnpm 9
+**Prerequisites:** Node 20+ and pnpm 9
 (`corepack enable && corepack prepare pnpm@9.15.9 --activate`); Python
 3.11+ and `pytest`. The plugin backend itself has **no** dependencies —
 standard library only.

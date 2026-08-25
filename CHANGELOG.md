@@ -22,7 +22,8 @@ correctly on a docked Deck and on desktop SteamOS or Bazzite at 1080p,
 - A frontend test suite (`pnpm run test:fe`, `make test-fe`) covering the
   sizing arithmetic across Deck, 1080p, 1440p and 4K viewports. It uses
   node's own test runner over the compiled module, so it adds no
-  dependency of any kind.
+  dependency of any kind. This raises the development-time Node floor to
+  20; the plugin itself is unaffected.
 
 ### Fixed
 

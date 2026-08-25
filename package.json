@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "build": "rollup -c",
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "test:fe": "tsc -p tsconfig.test.json && node --test \"tests/frontend/**/*.test.mjs\"",
+    "test:fe": "tsc -p tsconfig.test.json && node --test tests/frontend/*.test.mjs",
     "test:py": "pytest",
     "test": "pnpm run typecheck && pnpm run lint && pnpm run test:fe && pnpm run test:py"
   },
