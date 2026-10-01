@@ -20,8 +20,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { findSP } from "@decky/ui";
-
 import { getMediaFor, prefetch as prefetchEntries } from "../api";
 import {
   FALLBACK_PANE_BOTTOM,
@@ -34,9 +32,20 @@ import {
   typeScale,
   type PaneSide,
 } from "../overlayGeometry";
-import { measureFocusCentre, measureLibraryPane, type LibraryPane } from "../steam/bindings";
+import {
+  measureFocusCentre,
+  measureLibraryPane,
+  spWindow,
+  type LibraryPane,
+} from "../steam/bindings";
 import { startFocusTracking } from "../steam/focus";
-import { currentLanguage, setFocusStatus, usePluginState } from "../store";
+import {
+  currentLanguage,
+  getState,
+  markOverlayMounted,
+  setFocusStatus,
+  usePluginState,
+} from "../store";
 import type { LibraryEntry, MediaResult, OverlayPosition } from "../types";
 import { entryKey } from "../types";
 import { ScreenshotReel } from "./ScreenshotReel";
@@ -64,7 +73,9 @@ export function PreviewOverlay() {
    */
   const requestToken = useRef(0);
 
-  const active = settings.enabled && settings.preview_mode !== "off" && focus.ok;
+  /** What the user asked for, regardless of whether tracking is up. */
+  const wanted = settings.enabled && settings.preview_mode !== "off";
+  const active = wanted && focus.ok;
 
   // --- portal host ----------------------------------------------------
   //
@@ -86,13 +97,28 @@ export function PreviewOverlay() {
   const [side, setSide] = useState<PaneSide | null>(null);
   const sideRef = useRef<PaneSide | null>(null);
 
+  // Proof of life for the settings panel: if Decky never renders this
+  // component, the panel says so rather than leaving users guessing.
   useEffect(() => {
-    let element: HTMLElement | null = null;
+    markOverlayMounted();
+  }, []);
+
+  const hostRef = useRef<HTMLElement | null>(null);
+
+  // Created when the preview is switched on, not just at mount: if Steam's
+  // window could not be found the first time -- the plugin loaded while
+  // the QAM had focus, say -- switching the preview on retries rather
+  // than leaving it stuck rendering in place.
+  useEffect(() => {
+    if (!active) return;
+    const existing = hostRef.current;
+    if (existing?.isConnected) return;
     try {
-      const doc = findSP()?.document;
+      const doc = spWindow()?.document;
       if (!doc?.body) return;
+      // A host left behind by a previous load of the plugin.
       doc.getElementById(HOST_ID)?.remove();
-      element = doc.createElement("div");
+      const element = doc.createElement("div");
       element.id = HOST_ID;
       Object.assign(element.style, {
         position: "fixed",
@@ -102,17 +128,22 @@ export function PreviewOverlay() {
         zIndex: "7000",
       });
       doc.body.appendChild(element);
+      hostRef.current = element;
       setHost(element);
     } catch (error) {
       // Falling back to in-place rendering keeps the preview working,
       // just subject to whatever container Decky mounted us in.
       console.warn("[SteamView] could not create the overlay host:", error);
     }
-    return () => {
-      element?.remove();
-      setHost(null);
-    };
-  }, []);
+  }, [active]);
+
+  useEffect(
+    () => () => {
+      hostRef.current?.remove();
+      hostRef.current = null;
+    },
+    [],
+  );
 
   // --- pane measurement ------------------------------------------------
   //
@@ -126,7 +157,7 @@ export function PreviewOverlay() {
 
   const remeasure = useCallback((): LibraryPane | null => {
     try {
-      const measured = measureLibraryPane(findSP()?.document);
+      const measured = measureLibraryPane(spWindow()?.document);
       // Only replace a good measurement with another good one: leaving
       // the library unmounts the container, and the last known pane is a
       // better answer than the fallback.
@@ -143,7 +174,7 @@ export function PreviewOverlay() {
   useEffect(() => {
     if (!active) return;
     remeasure();
-    const win = findSP();
+    const win = spWindow();
     // Docking, undocking and resolution changes all arrive as a resize.
     win?.addEventListener?.("resize", remeasure);
     return () => win?.removeEventListener?.("resize", remeasure);
@@ -161,17 +192,26 @@ export function PreviewOverlay() {
 
   // --- focus tracking -------------------------------------------------
 
+  // Keyed on `wanted`, not `active`: `active` includes "tracking is up",
+  // so keying on it would mean one failed start could never be retried.
+  // As it is, switching the preview off and on again is a genuine retry,
+  // which is what anyone would try first.
   useEffect(() => {
-    if (!active) {
+    if (!wanted) {
       setEntry(null);
       return;
     }
-    const tracker = startFocusTracking(setEntry);
+    const tracker = startFocusTracking(setEntry, (reason) => {
+      setEntry(null);
+      setFocusStatus({ ok: false, reason });
+    });
     if (!tracker.ok) {
       setFocusStatus({ ok: false, reason: tracker.reason });
+    } else if (!getState().focus.ok) {
+      setFocusStatus({ ok: true });
     }
     return () => tracker.stop();
-  }, [active]);
+  }, [wanted]);
 
   // --- debounce -------------------------------------------------------
 
@@ -189,7 +229,7 @@ export function PreviewOverlay() {
       // element really is the capsule the user landed on.
       const measured = remeasure();
       if (settings.dynamic_position) {
-        const centre = measureFocusCentre(findSP()?.document, measured);
+        const centre = measureFocusCentre(spWindow()?.document, measured);
         if (centre !== null) {
           const resolved = nextSide(sideRef.current, centre);
           if (resolved !== sideRef.current) {

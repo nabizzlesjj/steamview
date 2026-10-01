@@ -8,38 +8,48 @@
  * library keep working exactly as they would without the plugin
  * installed.
  *
- * ## How it works
+ * ## Two sources, one answer
  *
- * A passive, capture-phase `focusin` listener on Steam's UI window.
- * Steam's gamepad navigation moves real DOM focus (that is how its focus
- * ring is positioned), so every time the highlight moves we get an event
- * whose target is the focused element. `bindings.entryForElement` then
- * walks up the React tree from that element to find the app it belongs
- * to.
+ * The highlighted element is read from two places, and both feed the
+ * same handler:
+ *
+ * - a passive, capture-phase `focusin` listener on Steam's UI window, for
+ *   an instant response when focus events arrive; and
+ * - a light poll of `document.activeElement`, which is what guarantees a
+ *   correct answer when they do not.
+ *
+ * Both are needed because whether Steam's SP window *delivers* focus
+ * events depends on which window holds system focus -- it varies by
+ * device, and changes the moment the Quick Access Menu opens or closes.
+ * `activeElement` is updated either way. An earlier version ran the poll
+ * only if no focus event arrived in the first five seconds, which made
+ * the plugin's behaviour depend on how quickly the user closed the QAM
+ * after enabling it.
+ *
+ * The poll costs one property read and one identity comparison per tick;
+ * the fiber walk only runs when the focused element actually changed.
+ *
+ * ## Realms
+ *
+ * Decky plugins run in Steam's `SharedJSContext`, but the library lives
+ * in the separate SP window. Elements from another window fail
+ * `instanceof Element` here, because each window has its own `Element`.
+ * So nothing here uses `instanceof` on a DOM node -- see `dom.ts`, and
+ * the lint rule that enforces it.
  *
  * Nothing is patched. We add a listener and read the tree; we never
  * modify a Valve component, so there is no patch to go stale.
- *
- * ## If focus events never arrive
- *
- * Should Steam ever stop moving real DOM focus, no `focusin` would fire
- * and the overlay would sit silently blank. So if nothing has been seen
- * within `FALLBACK_ARM_MS`, a low-frequency poll of
- * `document.activeElement` takes over: same fiber walk, different way of
- * reaching the element, and it costs nothing while the listener works.
  */
 
-import { findSP, getFocusNavController } from "@decky/ui";
+import { getFocusNavController } from "@decky/ui";
 
 import type { LibraryEntry } from "../types";
 import { entryKey } from "../types";
-import { entryForElement } from "./bindings";
+import { entryForElement, spWindow } from "./bindings";
+import { isElement } from "./dom";
 
-/** Wait this long for a first focus event before arming the poll. */
-const FALLBACK_ARM_MS = 5_000;
-
-/** How often the fallback checks, once armed. Deliberately unhurried. */
-const FALLBACK_POLL_MS = 250;
+/** How often the `activeElement` poll checks. Deliberately unhurried. */
+const POLL_MS = 250;
 
 /** Detach after this many consecutive handler failures. */
 const MAX_CONSECUTIVE_ERRORS = 5;
@@ -55,6 +65,9 @@ export interface FocusTracker {
 
 export type FocusListener = (entry: LibraryEntry | null) => void;
 
+/** Told when tracking gives up after starting, so the UI can say so. */
+export type FailureListener = (reason: string) => void;
+
 function noop(): void {
   /* nothing to tear down */
 }
@@ -66,18 +79,21 @@ function noop(): void {
  * focus moves somewhere the overlay should not appear. It is only called
  * when the entry actually changes, so a repeated focus event on the same
  * game does not churn React state.
+ *
+ * `onFailure` is called if tracking has to give up after a successful
+ * start, so the settings panel can say why rather than going quiet.
  */
-export function startFocusTracking(onFocus: FocusListener): FocusTracker {
-  let spWindow: Window | null | undefined;
+export function startFocusTracking(onFocus: FocusListener, onFailure?: FailureListener): FocusTracker {
+  let win: Window | null;
 
   try {
-    spWindow = findSP();
+    win = spWindow();
   } catch (error) {
     console.warn(`${LOG_PREFIX} could not locate Steam's UI window:`, error);
     return { ok: false, reason: "no-sp-window", stop: noop };
   }
 
-  const doc = spWindow?.document;
+  const doc = win?.document;
   if (!doc) {
     console.warn(`${LOG_PREFIX} Steam's UI window has no document; overlay disabled.`);
     return { ok: false, reason: "no-sp-window", stop: noop };
@@ -86,11 +102,15 @@ export function startFocusTracking(onFocus: FocusListener): FocusTracker {
   let stopped = false;
   let lastKey = " "; // a value entryKey() can never produce
   let consecutiveErrors = 0;
-  let sawFocusEvent = false;
   let hasLoggedFailure = false;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
-  let armTimer: ReturnType<typeof setTimeout> | undefined;
-  let lastPolledElement: Element | null = null;
+
+  /**
+   * The last element either source handed over. Shared, so the poll
+   * does not repeat a fiber walk a focus event already did -- and so the
+   * two sources can never disagree about what is current.
+   */
+  let lastElement: Element | null | undefined;
 
   /** Log the first failure in full, then stay quiet. */
   const logOnce = (message: string, error?: unknown) => {
@@ -107,14 +127,18 @@ export function startFocusTracking(onFocus: FocusListener): FocusTracker {
     onFocus(entry);
   };
 
-  /** Shared by the listener and the fallback poll. */
+  /** Shared by the listener and the poll. */
   const handleElement = (element: Element | null) => {
-    if (stopped) return;
+    if (stopped || element === lastElement) return;
+    lastElement = element;
     try {
       emit(entryForElement(element));
       consecutiveErrors = 0;
     } catch (error) {
       consecutiveErrors += 1;
+      // Forget the element, so the next tick retries it rather than
+      // treating a failed walk as a settled answer.
+      lastElement = undefined;
       logOnce("focus handler threw; overlay may be degraded.", error);
       if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         console.warn(
@@ -123,58 +147,48 @@ export function startFocusTracking(onFocus: FocusListener): FocusTracker {
         );
         stop();
         onFocus(null);
+        onFailure?.("handler-errors");
       }
     }
   };
 
   const onFocusIn = (event: Event) => {
-    sawFocusEvent = true;
-    handleElement(event.target instanceof Element ? event.target : null);
+    handleElement(isElement(event.target) ? event.target : null);
   };
 
   /**
-   * Last resort: read the focused element directly. Also consults the
-   * gamepad navigation controller, in case Steam is tracking a highlight
-   * that never reached `document.activeElement`.
+   * Read the focused element directly. Also consults the gamepad
+   * navigation controller, in case Steam is tracking a highlight that
+   * never reached `document.activeElement`.
    */
   const poll = () => {
     if (stopped) return;
     let element: Element | null = null;
     try {
-      element = doc.activeElement;
+      // Nothing on screen to follow; a hidden window cannot be browsed.
+      if (doc.visibilityState === "hidden") return;
+      const active = doc.activeElement;
+      element = isElement(active) ? active : null;
       if (!element || element === doc.body) {
         const controller = getFocusNavController();
         const context = controller?.m_ActiveContext ?? controller?.m_LastActiveContext;
-        const candidate = context?.m_ActiveNavTree?.m_LastFocusedNode?.Element ?? null;
-        if (candidate instanceof Element) element = candidate;
+        const candidate = context?.m_ActiveNavTree?.m_LastFocusedNode?.Element;
+        element = isElement(candidate) ? candidate : element;
       }
     } catch (error) {
-      logOnce("focus fallback poll threw.", error);
+      logOnce("focus poll threw.", error);
       return;
     }
-    if (element === lastPolledElement) return;
-    lastPolledElement = element;
     handleElement(element);
-  };
-
-  const armFallback = () => {
-    if (stopped || sawFocusEvent || pollTimer !== undefined) return;
-    console.warn(
-      `${LOG_PREFIX} no focus events in ${FALLBACK_ARM_MS}ms; ` +
-        `falling back to polling the focused element.`,
-    );
-    pollTimer = setInterval(poll, FALLBACK_POLL_MS);
   };
 
   function stop(): void {
     if (stopped) return;
     stopped = true;
-    if (armTimer !== undefined) clearTimeout(armTimer);
     if (pollTimer !== undefined) clearInterval(pollTimer);
-    armTimer = undefined;
     pollTimer = undefined;
     try {
-      doc.removeEventListener("focusin", onFocusIn, true);
+      doc?.removeEventListener("focusin", onFocusIn, true);
     } catch (error) {
       console.warn(`${LOG_PREFIX} failed to detach the focus listener:`, error);
     }
@@ -185,19 +199,21 @@ export function startFocusTracking(onFocus: FocusListener): FocusTracker {
     // with it; passive because we never call preventDefault.
     doc.addEventListener("focusin", onFocusIn, { capture: true, passive: true });
   } catch (error) {
-    console.warn(`${LOG_PREFIX} could not attach the focus listener:`, error);
-    return { ok: false, reason: "listener-failed", stop: noop };
+    // Not fatal on its own: the poll alone gives a correct answer.
+    console.warn(`${LOG_PREFIX} could not attach the focus listener; polling only:`, error);
   }
 
-  armTimer = setTimeout(armFallback, FALLBACK_ARM_MS);
+  try {
+    pollTimer = setInterval(poll, POLL_MS);
+  } catch (error) {
+    console.warn(`${LOG_PREFIX} could not start the focus poll:`, error);
+    stop();
+    return { ok: false, reason: "poll-failed", stop: noop };
+  }
 
   // Report whatever is already focused, so the overlay is correct
   // immediately rather than only after the next input.
-  try {
-    handleElement(doc.activeElement);
-  } catch {
-    // A failure here is not fatal; the listener still works.
-  }
+  poll();
 
   return { ok: true, stop };
 }

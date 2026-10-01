@@ -21,7 +21,7 @@ import { useEffect, useState } from "react";
 import { cacheStats, clearCache } from "../api";
 import { t } from "../i18n";
 import { AUTO, LANGUAGES } from "../languages";
-import { updateSettings, usePluginState } from "../store";
+import { LOADED_AT, updateSettings, usePluginState } from "../store";
 import type { CacheStats, OverlayPosition, OverlaySize, PreviewMode } from "../types";
 
 const PREVIEW_MODE_OPTIONS: { data: PreviewMode; label: string }[] = [
@@ -53,6 +53,13 @@ const LANGUAGE_OPTIONS: { data: string; label: string }[] = [
   ...LANGUAGES.map(({ code, label }) => ({ data: code, label })),
 ];
 
+/**
+ * How long after load the overlay may take to appear before the panel
+ * calls it missing. Decky renders global components almost immediately;
+ * this only has to cover a slow start, not a normal one.
+ */
+const OVERLAY_GRACE_MS = 8_000;
+
 /** English name for a Steam language code, or the code itself. */
 function languageLabel(code: string): string {
   return LANGUAGES.find((language) => language.code === code)?.label ?? code;
@@ -65,7 +72,17 @@ function formatBytes(bytes: number): string {
 }
 
 export function SettingsPanel() {
-  const { settings, focus, loading, clientLanguage } = usePluginState();
+  const { settings, focus, loading, clientLanguage, overlayMounted } = usePluginState();
+
+  // Re-render once the grace period ends, so a panel opened straight
+  // after load can still report a missing overlay.
+  const [graceOver, setGraceOver] = useState(() => Date.now() - LOADED_AT >= OVERLAY_GRACE_MS);
+  useEffect(() => {
+    if (graceOver || overlayMounted) return;
+    const timer = setTimeout(() => setGraceOver(true), OVERLAY_GRACE_MS - (Date.now() - LOADED_AT));
+    return () => clearTimeout(timer);
+  }, [graceOver, overlayMounted]);
+  const overlayMissing = !overlayMounted && graceOver;
   const [stats, setStats] = useState<CacheStats | null>(null);
   const [clearing, setClearing] = useState(false);
   const [cleared, setCleared] = useState<number | null>(null);
@@ -95,7 +112,20 @@ export function SettingsPanel() {
 
   return (
     <>
-      {!focus.ok ? (
+      {overlayMissing ? (
+        <PanelSection title={t("status.section")}>
+          <PanelSectionRow>
+            <Field
+              label={t("status.overlayMissing")}
+              description={t("status.overlayMissingBody")}
+              focusable={true}
+              bottomSeparator="none"
+            />
+          </PanelSectionRow>
+        </PanelSection>
+      ) : null}
+
+      {!focus.ok && !overlayMissing ? (
         <PanelSection title={t("status.section")}>
           <PanelSectionRow>
             <Field

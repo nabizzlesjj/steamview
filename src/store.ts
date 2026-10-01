@@ -27,6 +27,13 @@ export interface PluginState {
    * language falls back to English.
    */
   clientLanguage: string | null;
+  /**
+   * Whether Decky has ever rendered the overlay component. It is mounted
+   * through Decky's router hook, which can fail to attach to a newer
+   * Steam client than the installed Decky understands -- and when that
+   * happens nothing errors, the preview simply never appears.
+   */
+  overlayMounted: boolean;
 }
 
 type Listener = (state: PluginState) => void;
@@ -36,7 +43,11 @@ let state: PluginState = {
   focus: { ok: true },
   loading: true,
   clientLanguage: null,
+  overlayMounted: false,
 };
+
+/** When the plugin loaded, so "never mounted" can allow for start-up. */
+export const LOADED_AT = Date.now();
 
 const listeners = new Set<Listener>();
 
@@ -53,6 +64,11 @@ function publish(next: Partial<PluginState>): void {
 
 export function getState(): PluginState {
   return state;
+}
+
+/** Called by the overlay on mount; see `PluginState.overlayMounted`. */
+export function markOverlayMounted(): void {
+  if (!state.overlayMounted) publish({ overlayMounted: true });
 }
 
 export function setFocusStatus(focus: FocusStatus): void {

@@ -51,11 +51,14 @@ intercept gamepad navigation in any state.
 
 ### Detection
 
-1. `findSP()` locates Steam's UI window.
-2. A passive, capture-phase `focusin` listener is attached to its
-   document. Steam's gamepad navigation moves real DOM focus — that is
-   how its focus ring is positioned — so the highlight moving produces an
-   event whose target is the focused element.
+1. `bindings.spWindow()` locates Steam's UI window. It wraps `findSP()`
+   and remembers the last good answer, because `findSP()` searches the
+   *active* navigation context — which is the Quick Access Menu's while
+   that menu is open, the very moment the preview is usually switched on.
+2. The focused element is read from two sources that feed one handler:
+   a passive, capture-phase `focusin` listener for an instant response,
+   and a 250 ms poll of `document.activeElement` that guarantees one (see
+   [Two sources, one answer](#two-sources-one-answer)).
 3. Scope check, in `bindings.isInScope`:
    - on a game's **detail page** → ignore. Steam already fills that
      screen with the game's own artwork and Play button.
@@ -82,27 +85,76 @@ classes *and* the `/library/app/` route, because either can go stale
 alone: class names are minified per build, and the route only helps if
 Steam's router writes it to the document location.
 
-### If focus events never arrive
+### Two sources, one answer
 
-Should Steam stop moving real DOM focus, no `focusin` would fire and the
-overlay would sit blank. If nothing has been seen within 5 seconds,
-`focus.ts` arms a 250 ms poll: `document.activeElement` first (plain DOM,
-coupled to nothing), then `getFocusNavController()` for a highlight Steam
-is tracking that never reached the document. Either way the element goes
-through the same fiber walk. The poll is never armed while the listener
-is working.
+Steam moves real DOM focus as the highlight moves, so
+`document.activeElement` always names the highlighted capsule. Whether a
+`focusin` *event* reaches us is another matter: it depends on which
+window holds system focus, which varies by device and changes whenever
+the Quick Access Menu opens or closes.
+
+So the event is treated as a fast path and the poll as the guarantee.
+Each tick reads `activeElement` (falling back to
+`getFocusNavController()` for a highlight that never reached the
+document), compares it by identity with the last element either source
+handled, and only runs the fiber walk when it changed — one property
+read and one comparison per tick otherwise. It skips ticks while the
+window is hidden, and stops entirely when the preview is off.
+
+Up to 1.2.0 the poll ran only if no event arrived in the first five
+seconds. Combined with the realm bug below, that made the plugin's
+behaviour depend on how quickly the user closed the QAM after enabling
+it: an early event switched the poll off for good.
+
+### Realms
+
+Decky plugins run in Steam's `SharedJSContext`. The library is rendered
+in the separate SP window, and every window has its own `Element`,
+`HTMLElement` and friends — so `node instanceof Element` here is **false**
+for every node in the library. It fails silently, exactly as if nothing
+were focused.
+
+Up to 1.2.0, `focus.ts` checked each `focusin` target that way. Every
+event therefore read as "nothing highlighted" and blanked the preview;
+it only ever worked because the poll, which read `activeElement`
+without the check, put it back 250 ms later — when the poll was running
+at all. That is the "appears for a second, then vanishes" report.
+
+DOM checks go through `steam/dom.ts`'s `isElement`, which tests
+`nodeType` instead, and an ESLint rule rejects `instanceof` against any
+DOM class anywhere in `src/`. A browser harness with the library in a
+same-origin iframe — a separate realm, as SP is — reproduced the bug
+against the real `focus.ts` and confirms the fix for events delivered
+early, late, and not at all.
 
 ### Failure policy
 
 `startFocusTracking` returns `{ ok, reason, stop }`. Every callback body
 is wrapped; the initial wiring is wrapped; five consecutive handler
-exceptions detach the listener entirely. Failures log **once**, not per
-event, so a broken build cannot spam the console at gamepad-input
-frequency.
+exceptions detach tracking entirely and report it through an
+`onFailure` callback. Failures log **once**, not per event, so a broken
+build cannot spam the console at gamepad-input frequency. A listener
+that cannot attach is not fatal on its own: the poll still answers.
 
 On failure the plugin stays loaded: the QAM panel appears, states the
 reason inline, and every setting still works. Only the overlay is gone,
 and the library is untouched either way.
+
+Switching the preview off and on again is a genuine retry. Tracking is
+keyed on what the user asked for, not on whether tracking is up — keyed
+on the latter, one failed start could never be retried short of
+reloading the plugin.
+
+### If the overlay never mounts
+
+The overlay is rendered through Decky's router hook. When a Steam client
+update outpaces the installed Decky — as Steam's September 2026 client
+did to Decky 3.2.8 and older, fixed in 3.2.9 — that hook can fail to
+attach, and nothing errors: the preview simply never appears, while the
+QAM panel, which Decky mounts separately, carries on. The overlay
+therefore reports its own mount to the store, and if it has not mounted
+within a few seconds of load the panel says so and points at updating
+Decky.
 
 ### Overlay geometry
 
@@ -320,7 +372,9 @@ trailer kind and screenshot count.
 | # | Risk | Mitigation |
 | --- | --- | --- |
 | 1 | Microtrailer path changes or disappears | Probed, never assumed; falls back to the API's own webm |
-| 2 | `focusin` stops firing for gamepad nav | `activeElement` poll, then nav-controller, then clean self-disable |
+| 2 | `focusin` stops firing for gamepad nav | Not relied on: the `activeElement` poll always runs, with the nav controller behind it |
+| 2a | A DOM check assumes one realm | `isElement` in `steam/dom.ts`; ESLint rejects `instanceof` against DOM classes |
+| 2b | Steam outpaces Decky's router hook | The QAM panel detects that the overlay never mounted and says to update Decky |
 | 3 | Valve renames the props the fiber walk looks for | Four candidate paths; all constants in one block in `bindings.ts` |
 | 4 | Steam rate-limits `storesearch` on a large library | 3 concurrent max, 7-day cache, backoff honouring `Retry-After` |
 | 5 | Video decode costs battery | 480p cap, muted, autoplay delay, teardown on blur, data-saver mode |

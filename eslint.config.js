@@ -21,6 +21,19 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      // The library is rendered in Steam's SP window, a different realm
+      // from the one this plugin runs in, so `x instanceof Element` is
+      // false for every element in it. That one check silently disabled
+      // the preview in 1.0-1.2. Use `isElement` from steam/dom.ts.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "BinaryExpression[operator='instanceof'][right.name=/^(Node|Element|HTML\\w*Element|Document|Window|EventTarget)$/]",
+          message:
+            "instanceof against a DOM class is false for nodes from Steam's SP window (another realm). Use isElement() from steam/dom.ts.",
+        },
+      ],
     },
   },
 );

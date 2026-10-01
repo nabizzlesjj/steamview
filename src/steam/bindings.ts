@@ -27,6 +27,7 @@
 import {
   appDetailsClasses,
   basicAppDetailsSectionStylerClasses,
+  findSP,
   gamepadLibraryClasses,
   getReactInstance,
 } from "@decky/ui";
@@ -60,6 +61,35 @@ const APP_TYPE_SHORTCUT = 1073741824;
 
 /** Synthetic shortcut appids sit at or above this. */
 const SHORTCUT_APPID_MIN = 2 ** 31;
+
+// ---------------------------------------------------------------------
+// Steam's UI window
+// ---------------------------------------------------------------------
+
+let lastSpWindow: Window | null = null;
+
+/**
+ * Steam's SP window -- where the library is rendered -- or null.
+ *
+ * `findSP()` locates it through whichever gamepad navigation context is
+ * *active*, so its answer depends on what has focus at the moment of the
+ * call: with the Quick Access Menu open, the active context is the
+ * menu's. The SP window itself does not change while Steam runs, so the
+ * last good answer is kept and reused while that window is still open.
+ */
+export function spWindow(): Window | null {
+  try {
+    const found = findSP();
+    if (found?.document) {
+      lastSpWindow = found;
+      return found;
+    }
+  } catch {
+    // Fall through to the remembered window.
+  }
+  if (lastSpWindow && !lastSpWindow.closed && lastSpWindow.document) return lastSpWindow;
+  return null;
+}
 
 // ---------------------------------------------------------------------
 // Scoping

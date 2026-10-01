@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-10-01
+
+### Fixed
+
+- **The preview appeared for a moment and then vanished**, often until
+  it was switched off and on again -- and on some devices never appeared
+  at all. Decky plugins run in a different window from Steam's library,
+  and an `instanceof Element` check is false for elements from another
+  window, so every focus event was read as "nothing highlighted". It only
+  ever worked because a backup poll put the preview back -- and that poll
+  switched itself off for good if a focus event arrived in the first few
+  seconds, which is exactly what closing the Quick Access Menu right after
+  enabling the plugin does. Element checks no longer depend on the window,
+  the poll always runs, and a lint rule stops the pattern coming back.
+- Switching **Enabled** off and on now genuinely retries a focus hook
+  that failed to start. Previously one failure lasted until the plugin
+  was reloaded.
+- Steam's UI window is remembered once found, so starting the preview
+  while the Quick Access Menu has focus no longer risks not finding it.
+
+### Added
+
+- A **"Preview not running"** notice in the settings panel when Decky
+  never renders the preview layer. Steam's September 2026 client update
+  broke this in Decky Loader 3.2.8 and older without any visible error;
+  the notice says to update Decky. **Decky Loader 3.2.9 or newer is now
+  required.**
+
 ## [1.2.0] - 2026-08-25
 
 Two features suggested by players after the 1.1.0 release.

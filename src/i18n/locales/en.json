@@ -48,7 +48,9 @@
     "section": "Status",
     "focusUnavailable": "Preview unavailable",
     "focusUnavailableBody": "SteamView could not hook into the library UI, most likely because a SteamOS update changed it. Your library is unaffected. Please report this with the plugin version and your SteamOS build.",
-    "reason": "Reason: {{reason}}"
+    "reason": "Reason: {{reason}}",
+    "overlayMissing": "Preview not running",
+    "overlayMissingBody": "Decky Loader has not started SteamView's preview layer, so nothing can appear over the library. Most often this means Decky Loader needs updating: Steam's September 2026 update broke versions before 3.2.9. Update Decky Loader, then restart Steam."
   },
   "units": {
     "milliseconds": "{{value}} ms"

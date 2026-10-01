@@ -3,7 +3,8 @@
 Everything that can be verified without hardware already is: the backend
 resolver has 439 `pytest` cases with all network mocked, the overlay's
 sizing and placement are tested across Deck, 1080p, 1440p and 4K
-viewports,
+viewports, the focus hook's cross-window element checks are tested and
+lint-enforced,
 and the frontend typechecks, lints and builds clean in CI. What none of
 that can prove is whether the focus hook actually fires on a real Deck,
 whether the microtrailer URL exists, and whether the pane Steam actually
@@ -79,6 +80,10 @@ Keep both open for the first run. Most failures announce themselves.
 
 **Backend log should contain:** `SteamView backend ready (cache: …)`
 
+> ❗ **If a "Preview not running" block appears at the top of the
+> panel**, Decky never rendered the preview layer — update Decky Loader
+> to 3.2.9 or newer and restart Steam before going further.
+>
 > ❗ **If a red "Preview unavailable" block appears at the top of the
 > panel**, the focus hook did not start. That is the headline failure —
 > note the reason it gives and the frontend console output, and stop
@@ -348,19 +353,33 @@ The non-negotiable. Confirm all of these hold:
 - [ ] Disabling the plugin in Decky returns everything to exactly stock
 - [ ] Uninstalling it leaves nothing behind
 
-### Simulating a SteamOS update breaking the hook
+### Switching it on from the Quick Access Menu
+
+This is the case 1.2.1 fixed, and the one most worth repeating on any
+new device. Do it several times, varying how quickly you close the menu:
+
+1. Highlight a game in the library.
+2. Open **···** → SteamView, switch **Enabled** off, then on.
+3. Close the menu — sometimes immediately, sometimes after a few seconds.
+4. Scroll to a few more games.
+
+**Expect:** the preview follows the highlight every time, however fast
+you closed the menu. Before 1.2.1 a quick close left the preview showing
+once and then gone until it was toggled again.
+
+### Simulating a Steam update breaking the hook
 
 Worth doing once, because it is the failure mode most likely to reach
-you for real. In the frontend console:
+you for real. In the **SharedJSContext** console:
 
 ```js
-// Force the focus hook to fail on next start
-document.addEventListener = () => { throw new Error("simulated breakage"); };
+// Pretend a Steam update moved the store the hook reads games from
+window.appStore = undefined;
 ```
 
-Then toggle **Enabled** off and on. **Expect:** the overlay stays gone,
-the QAM panel shows the "Preview unavailable" block, **and the library
-keeps working completely normally.** Reload Steam to undo.
+**Expect:** the overlay stops appearing, the QAM panel keeps working,
+**and the library keeps working completely normally.** Restart Steam to
+undo.
 
 ---
 

@@ -105,8 +105,9 @@ it should appear within a second.
 
 **Requirements:** any device running SteamOS Game Mode — a Steam Deck,
 docked or handheld, or a desktop running SteamOS or Bazzite at any
-resolution — plus Decky Loader and an internet connection the first time
-each game is previewed. After that its media is cached on disk.
+resolution — plus **Decky Loader 3.2.9 or newer** and an internet
+connection the first time each game is previewed. After that its media
+is cached on disk.
 
 ### Updating
 
@@ -199,7 +200,7 @@ pnpm install
 | `pnpm run watch` | Rebuild on change |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run lint` | ESLint over `src/` |
-| `pnpm run test:fe` | Overlay geometry and language tests |
+| `pnpm run test:fe` | Overlay geometry, language and DOM-realm tests |
 | `pytest` | Backend test suite (439 tests) |
 | `make check` | Everything CI runs |
 | `make package` | Build the installable ZIP into `out/` |
@@ -288,10 +289,22 @@ the "Source code (zip)" link was installed instead of the release asset.
 Check with `ls ~/homebrew/plugins/SteamView/dist/index.js`; if it's
 absent, reinstall using the `SteamView-vX.Y.Z.zip` asset.
 
-**The plugin loads but no preview appears** — open the QAM panel. A
-**"Preview unavailable"** block means the focus hook couldn't attach,
-most likely because a SteamOS update changed the library UI. Otherwise
-check that **Enabled** is on and **Preview mode** isn't *Off*.
+**The plugin loads but no preview appears** — open the QAM panel.
+
+- **"Preview not running"** means Decky Loader never started the preview
+  layer. Almost always that is an outdated Decky: Steam's September 2026
+  client update broke Decky 3.2.8 and older. Update Decky Loader to 3.2.9
+  or newer — the **gear** icon in Decky → **General** → **Updates** →
+  **Check For Updates** — then restart Steam.
+- **"Preview unavailable"** means the focus hook couldn't attach, most
+  likely because a Steam update changed the library UI. Switching
+  **Enabled** off and on retries it.
+- Otherwise check that **Enabled** is on and **Preview mode** isn't
+  *Off*.
+
+**The preview appears for a moment, then disappears** — fixed in 1.2.1;
+update SteamView. (Tracking treated most focus changes as "nothing
+highlighted". [ARCHITECTURE.md](ARCHITECTURE.md#realms) has the details.)
 
 **A preview looks wrong or stale** — use **Clear cache**. Media is cached
 for seven days.
