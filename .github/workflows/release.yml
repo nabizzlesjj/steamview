@@ -68,10 +68,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The same checks CI runs, so nothing ships that CI would reject.
+      # test:fe covers overlay geometry, languages and the cross-window
+      # DOM checks whose absence caused the 1.2.1 fix.
       - name: Verify before shipping
         run: |
           pnpm run typecheck
           pnpm run lint
+          pnpm run test:fe
           python -m pip install --upgrade pip pytest
           python -m pytest
 
