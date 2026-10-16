@@ -21,6 +21,8 @@ import { useEffect, useState } from "react";
 import { cacheStats, clearCache } from "../api";
 import { t } from "../i18n";
 import { AUTO, LANGUAGES } from "../languages";
+import { buttonLabel } from "../steam/controllerInput";
+import { captureNextButton, type CaptureResult } from "../steam/bindings";
 import { LOADED_AT, updateSettings, usePluginState } from "../store";
 import type {
   CacheStats,
@@ -29,6 +31,9 @@ import type {
   PreviewMode,
   PreviewTrigger,
 } from "../types";
+
+/** How long "Change" waits for a press before giving up. */
+const CAPTURE_TIMEOUT_MS = 10_000;
 
 const TRIGGER_OPTIONS: { data: PreviewTrigger; label: string }[] = [
   { data: "auto", label: "settings.triggerAuto" },
@@ -85,6 +90,41 @@ function formatBytes(bytes: number): string {
 export function SettingsPanel() {
   const { settings, focus, loading, clientLanguage, overlayMounted, viewButton } = usePluginState();
   const viewMode = settings.trigger === "view_button";
+
+  const [capturing, setCapturing] = useState(false);
+  const [captureResult, setCaptureResult] = useState<CaptureResult | null>(null);
+
+  const onChangeButton = async () => {
+    setCapturing(true);
+    setCaptureResult(null);
+    try {
+      const result = await captureNextButton(CAPTURE_TIMEOUT_MS);
+      setCaptureResult(result);
+      if (result.kind === "captured") await updateSettings({ preview_button: result.button });
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const captureMessage = (() => {
+    if (capturing) return t("settings.previewButtonListening");
+    switch (captureResult?.kind) {
+      case "captured":
+        return t("settings.previewButtonSaved", { button: buttonLabel(captureResult.button) });
+      case "unavailable":
+        return t("settings.triggerViewButtonUnavailable");
+      case "silent":
+        return t("settings.previewButtonSilent");
+      case "unrecognised":
+        return t("settings.previewButtonUnrecognised");
+      case "timeout":
+        return t("settings.previewButtonTimeout");
+      default:
+        return t("settings.previewButtonDescription", {
+          button: buttonLabel(settings.preview_button),
+        });
+    }
+  })();
 
   // Re-render once the grace period ends, so a panel opened straight
   // after load can still report a missing overlay.
@@ -196,6 +236,20 @@ export function SettingsPanel() {
             onChange={(option) => void updateSettings({ trigger: option.data as PreviewTrigger })}
           />
         </PanelSectionRow>
+
+        {viewMode ? (
+          <PanelSectionRow>
+            <ButtonItem
+              layout="below"
+              label={t("settings.previewButton")}
+              description={captureMessage}
+              disabled={loading || !settings.enabled || capturing}
+              onClick={() => void onChangeButton()}
+            >
+              {capturing ? t("settings.previewButtonPressNow") : t("settings.previewButtonChange")}
+            </ButtonItem>
+          </PanelSectionRow>
+        ) : null}
 
         <PanelSectionRow>
           <SliderField

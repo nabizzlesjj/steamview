@@ -177,6 +177,16 @@ API's properties are undocumented and handled in `steam/controllerInput.ts`:
   exactly that — so both are parsed.
 - **The unregister handle varies:** a function on some builds, an object
   with `unregister()` on others.
+- **The IDs are not reliably the published ones.** `@decky/ui` publishes
+  View as `9`, and 1.3.0 listened for that; on a Deck, pressing View did
+  nothing. Steamcord had already measured the D-pad arriving as 20–23
+  rather than the published 4–7 on September 2026 builds. So the button
+  is *captured*: **Preview button → Change** listens for the next press
+  and stores whatever ID Steam actually sent (`preview_button`, default
+  `9`). `createCapture` ignores the A press that started it, which Steam
+  can report as still held, and a capture that hears nothing says why —
+  no messages at all, messages in an unreadable shape, or no fresh press —
+  instead of failing quietly.
 
 Presses are taken as edges: a held button that Steam reports again does
 not toggle twice. Steam's own callback wrapper swallows exceptions, so
@@ -188,12 +198,17 @@ delay or consume input. The subscription exists only while that mode is
 selected and the preview is on.
 
 **Games.** View is commonly a map button, and a preview starting to play
-behind a game would be a real cost. Three things stand in the way:
-Steam reportedly delivers these messages only while its own UI has input
-focus (observed by another plugin's users, not verified here); a press
-counts only when the focus tracker reports a highlighted *library*
-entry, which a game's page and Play button are not; and a press is
-ignored while the SP window reports itself hidden.
+behind a game would be a real cost. Two things stand in the way. Steam
+stops passing buttons to its UI once a game has focus — confirmed by
+Steamcord's users, whose push-to-talk depends on this API and stopped
+working in games for exactly that reason. And a press counts only when
+the focus tracker reports a highlighted *library* entry, which a game's
+page and Play button are not.
+
+1.3.0 also ignored presses while the SP window reported itself hidden.
+What Gamescope reports there is unverified, and a window that always
+read as hidden would drop every press — one possible cause of View doing
+nothing — so 1.3.1 removed it; the two guards above cover the same case.
 
 If the API is missing, `onViewButton` returns null and the settings
 panel says so under the setting, rather than leaving a mode in which

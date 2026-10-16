@@ -36,7 +36,7 @@ import { peekAfterFocus, peekAfterPress } from "../peek";
 import {
   measureFocusCentre,
   measureLibraryPane,
-  onViewButton,
+  onControllerButton,
   spWindow,
   type LibraryPane,
 } from "../steam/bindings";
@@ -240,18 +240,23 @@ export function PreviewOverlay() {
       setPeekKey(null);
       return;
     }
-    const unsubscribe = onViewButton(() => {
-      // Steam reportedly reports buttons only while its own UI has input
-      // focus, so a View press in a game (often the map button) should
-      // never get here. If one does, the library window is not on screen, and a
-      // preview must not start playing behind the game.
-      if (spWindow()?.document?.visibilityState === "hidden") return;
+    // A press inside a game -- where View is often the map button --
+    // never arrives: Steam stops passing buttons to its UI while a game
+    // has focus. And a press only does anything with a library game
+    // highlighted, which a game's page and Play button are not.
+    //
+    // 1.3.0 also ignored presses while Steam's window reported itself
+    // hidden. Gamescope's reporting there is unverified, and an
+    // always-"hidden" window would drop every press -- one explanation
+    // for View doing nothing -- so that check is gone; the two guards
+    // above already cover the case it was for.
+    const unsubscribe = onControllerButton(settings.preview_button, () => {
       const key = focusedKeyRef.current;
       setPeekKey((current) => peekAfterPress(current, key));
     });
     setViewButtonStatus(unsubscribe ? "ok" : "unavailable");
     return () => unsubscribe?.();
-  }, [active, viewMode]);
+  }, [active, viewMode, settings.preview_button]);
 
   // --- settle ---------------------------------------------------------
 

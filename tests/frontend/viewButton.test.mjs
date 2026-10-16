@@ -12,7 +12,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CAPTURE_GRACE_MS,
   VIEW_BUTTON,
+  buttonLabel,
+  createCapture,
   parseControllerInput,
   pressDetector,
   toUnsubscribe,
@@ -107,4 +110,63 @@ test("pressing on a new game while one is open switches to it", () => {
   // Only reachable if focus moved without a focus report in between;
   // the new game wins either way.
   assert.equal(peekAfterPress("steam:1145360", "steam:504230"), "steam:504230");
+});
+
+// --- capturing the button --------------------------------------------
+
+test("a capture returns the next button pressed, whatever its ID", () => {
+  const capture = createCapture(0);
+  // 35 is not the published View ID -- which is the point: current Steam
+  // builds do not always send the published values.
+  assert.equal(capture.feed([0, 35, true], 1000), 35);
+});
+
+test("the A press that started the capture cannot capture itself", () => {
+  const capture = createCapture(0);
+  // Steam re-reports A as still held just after "Change" was pressed...
+  assert.equal(capture.feed([0, 0, true], 50), null);
+  // ...and even reported again after the grace period, it is still the
+  // same press until it has been released.
+  assert.equal(capture.feed([0, 0, true], CAPTURE_GRACE_MS + 100), null);
+  assert.equal(capture.feed([0, 0, false], CAPTURE_GRACE_MS + 200), null);
+  // The user then presses View.
+  assert.equal(capture.feed([0, 9, true], CAPTURE_GRACE_MS + 900), 9);
+});
+
+test("a deliberate press of the button that started it still counts once released", () => {
+  const capture = createCapture(0);
+  capture.feed([0, 0, true], 10);
+  capture.feed([0, 0, false], 200);
+  assert.equal(capture.feed([0, 0, true], CAPTURE_GRACE_MS + 50), 0);
+});
+
+test("releases never capture", () => {
+  const capture = createCapture(0);
+  assert.equal(capture.feed([0, 9, false], 2000), null);
+});
+
+test("the older callback shape is captured too", () => {
+  const capture = createCapture(0);
+  assert.equal(capture.feed([[{ nA: 35, bS: true }]], 1000), 35);
+});
+
+test("a capture can tell silence from an unreadable message", () => {
+  const silent = createCapture(0);
+  assert.equal(silent.callbacks, 0);
+
+  const unreadable = createCapture(0);
+  unreadable.feed([{ some: "new shape" }], 1000);
+  unreadable.feed(["also new"], 1100);
+  assert.equal(unreadable.callbacks, 2);
+  assert.equal(unreadable.events, 0);
+
+  const readable = createCapture(0);
+  readable.feed([0, 9, false], 1000);
+  assert.equal(readable.events, 1);
+});
+
+test("button labels name what they can and number everything", () => {
+  assert.equal(buttonLabel(9), "View (9)");
+  assert.equal(buttonLabel(0), "A (0)");
+  assert.equal(buttonLabel(35), "Button 35");
 });

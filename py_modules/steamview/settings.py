@@ -23,6 +23,12 @@ SIZES = ("s", "m", "l")
 #: when the user presses the View button on a game.
 TRIGGERS = ("auto", "view_button")
 
+#: The controller button ID that shows the preview in View-button mode.
+#: Captured from a real press rather than assumed, because Steam does not
+#: always send the published IDs; 9 is the published View button.
+PREVIEW_BUTTON_MIN = 0
+PREVIEW_BUTTON_MAX = 255
+
 AUTOPLAY_DELAY_MIN = 0
 AUTOPLAY_DELAY_MAX = 5000
 
@@ -36,6 +42,7 @@ DEFAULTS: dict[str, Any] = {
     "enabled": True,
     "preview_mode": "trailer",
     "trigger": "auto",
+    "preview_button": 9,
     "preview_delay_ms": 300,
     "autoplay_delay_ms": 600,
     "muted": True,
@@ -92,6 +99,12 @@ def validate(raw: Any) -> dict[str, Any]:
         "enabled": _as_bool(source.get("enabled"), DEFAULTS["enabled"]),
         "preview_mode": _as_choice(source.get("preview_mode"), PREVIEW_MODES, DEFAULTS["preview_mode"]),
         "trigger": _as_choice(source.get("trigger"), TRIGGERS, DEFAULTS["trigger"]),
+        "preview_button": _as_int(
+            source.get("preview_button"),
+            PREVIEW_BUTTON_MIN,
+            PREVIEW_BUTTON_MAX,
+            DEFAULTS["preview_button"],
+        ),
         "preview_delay_ms": _as_int(
             source.get("preview_delay_ms"),
             PREVIEW_DELAY_MIN,

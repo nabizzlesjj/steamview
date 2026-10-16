@@ -66,6 +66,21 @@ class TestValidate:
     def test_an_unknown_trigger_falls_back_to_auto(self, raw):
         assert validate({"trigger": raw})["trigger"] == "auto"
 
+    def test_the_preview_button_defaults_to_the_published_view_id(self):
+        assert DEFAULTS["preview_button"] == 9
+
+    @pytest.mark.parametrize(("raw", "expected"), [(35, 35), ("20", 20), (0, 0), (255, 255)])
+    def test_a_captured_button_is_kept(self, raw, expected):
+        assert validate({"preview_button": raw})["preview_button"] == expected
+
+    @pytest.mark.parametrize(("raw", "expected"), [(-1, 0), (999, 255)])
+    def test_an_out_of_range_button_is_clamped(self, raw, expected):
+        assert validate({"preview_button": raw})["preview_button"] == expected
+
+    @pytest.mark.parametrize("raw", ["view", None, True, [], 1.5j])
+    def test_an_unusable_button_falls_back_to_view(self, raw):
+        assert validate({"preview_button": raw})["preview_button"] == 9
+
     def test_a_settings_file_from_before_triggers_existed_still_loads(self):
         older = {key: value for key, value in DEFAULTS.items() if key != "trigger"}
         assert validate(older)["trigger"] == "auto"

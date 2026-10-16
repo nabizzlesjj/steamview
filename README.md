@@ -161,10 +161,14 @@ you scroll. Highlight a game and press **View** (the button left of the
 left stick on a Deck; *Back* or *Select* on most other controllers) to
 show its preview. Press View again, or move to another game, to hide it.
 
+**If pressing View does nothing**, open the panel, choose **Preview
+button → Change**, and press View once. Steam doesn't always report
+buttons by their usual numbers, so SteamView learns the one your device
+actually sends. This also works for picking any other button. If Steam
+isn't passing buttons to plugins at all, the panel says so.
+
 SteamView only listens for the button — Steam still handles the press as
-it normally would, and nothing about Steam's own controls changes. If
-your Steam version doesn't let plugins read the button, the setting says
-so.
+it normally would, and nothing about Steam's own controls changes.
 
 ---
 
@@ -214,7 +218,7 @@ pnpm install
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run lint` | ESLint over `src/` |
 | `pnpm run test:fe` | Overlay geometry, language, DOM-realm and View-button tests |
-| `pytest` | Backend test suite (449 tests) |
+| `pytest` | Backend test suite (461 tests) |
 | `make check` | Everything CI runs |
 | `make package` | Build the installable ZIP into `out/` |
 | `make licenses` | Regenerate `THIRD_PARTY_LICENSES.md` |

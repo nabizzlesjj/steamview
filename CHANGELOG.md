@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - 2026-10-16
+
+### Fixed
+
+- **Pressing View did nothing.** Steam does not always report controller
+  buttons by their published numbers -- another plugin had measured the
+  D-pad arriving under different IDs in September -- and 1.3.0 listened
+  only for View's published one. There is now a **Preview button** row
+  with a **Change** action: press the button once and SteamView stores
+  the ID Steam actually sends. Any button can be chosen this way. If
+  Steam sends nothing, or sends something unreadable, the row says which
+  rather than failing quietly.
+- Presses are no longer ignored while Steam's window reports itself
+  hidden. That check was unverified on Gamescope and could have dropped
+  every press; Steam already stops passing buttons to its UI while a game
+  is in front, which covers what it was for.
+
 ## [1.3.0] - 2026-10-16
 
 ### Added

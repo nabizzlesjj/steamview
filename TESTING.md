@@ -288,8 +288,14 @@ turn them on.
 
 ### Show preview → When I press View
 
-Set **Show preview** to **When I press View**.
+Set **Show preview** to **When I press View**. A **Preview button** row
+appears below it.
 
+- [ ] Choose **Change** and press **View**. Note what the row reports —
+      **write the number down**: it is the ID your device sends, and if it
+      isn't `9` that is worth reporting so the default can be fixed. If it
+      reports that no presses were heard, or an unrecognised format, stop
+      and report that with your SteamOS version: the rest cannot work.
 - [ ] Scrolling the library shows **no** preview at all
 - [ ] Pressing **View** on a highlighted game shows its preview at once —
       no preview-delay wait

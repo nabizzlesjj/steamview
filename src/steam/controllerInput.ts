@@ -18,11 +18,42 @@
  */
 
 /**
- * `EGamepadButton` value of the View button -- the one left of the left
- * stick on a Deck, "Back"/"Select" on most other pads. Matches
- * `ControllerInputGamepadButton.GAMEPAD_BUTTON_VIEW` in `@decky/ui`.
+ * The published `EGamepadButton` value of the View button -- the one
+ * left of the left stick on a Deck, "Back"/"Select" on most other pads --
+ * as `ControllerInputGamepadButton.GAMEPAD_BUTTON_VIEW` in `@decky/ui`.
+ *
+ * Only a default. Current Steam builds do not always send the published
+ * values through this API: the Steamcord plugin measured the D-pad
+ * arriving as 20-23 rather than 4-7 in September 2026, and View did
+ * nothing on a Deck with 1.3.0. So the button is *captured* -- the user
+ * presses it once and whatever ID Steam actually sends is stored -- and
+ * this is only where that starts.
  */
 export const VIEW_BUTTON = 9;
+
+/**
+ * Names for the IDs worth naming, from `@decky/ui`'s published enum.
+ * Since Steam does not always send those values, a name is a hint, not a
+ * promise -- the panel shows the number alongside it.
+ */
+const BUTTON_NAMES: Record<number, string> = {
+  0: "A",
+  1: "B",
+  2: "X",
+  3: "Y",
+  8: "Menu",
+  9: "View",
+  28: "Left trigger",
+  29: "Right trigger",
+  30: "Left bumper",
+  31: "Right bumper",
+};
+
+/** A short label for a button ID, e.g. "View (9)" or "Button 35". */
+export function buttonLabel(button: number): string {
+  const name = BUTTON_NAMES[button];
+  return name ? `${name} (${button})` : `Button ${button}`;
+}
 
 export interface ButtonEvent {
   button: number;
@@ -86,5 +117,56 @@ export function pressDetector(button: number, onPress: () => void): (...args: un
       if (event.pressed && !held) onPress();
       held = event.pressed;
     }
+  };
+}
+
+/** How long after a capture starts to treat already-held buttons as noise. */
+export const CAPTURE_GRACE_MS = 400;
+
+/**
+ * Learns which button the user presses next.
+ *
+ * Feed it every raw callback; it returns the button ID once a genuine
+ * press arrives. Two things are not genuine presses:
+ *
+ * - **The press that started the capture.** The user pressed A on
+ *   "Change", and Steam can report A as still held just after the capture
+ *   begins -- Steamcord's capture validated itself on exactly that. Any
+ *   button seen pressed in the first `graceMs` is ignored until it has
+ *   been released.
+ * - **Releases.** Only a press counts.
+ *
+ * It also counts what arrived, so a capture that ends empty-handed can
+ * say *why*: Steam sent nothing at all, or sent something unrecognisable.
+ */
+export function createCapture(startMs: number, graceMs = CAPTURE_GRACE_MS) {
+  const ignored = new Set<number>();
+  let callbacks = 0;
+  let events = 0;
+  return {
+    /** Raw callbacks received, recognised or not. */
+    get callbacks(): number {
+      return callbacks;
+    },
+    /** Button events parsed out of them. */
+    get events(): number {
+      return events;
+    },
+    feed(args: readonly unknown[], nowMs: number): number | null {
+      callbacks += 1;
+      for (const { button, pressed } of parseControllerInput(args)) {
+        events += 1;
+        if (!pressed) {
+          ignored.delete(button);
+          continue;
+        }
+        if (nowMs - startMs < graceMs) {
+          ignored.add(button);
+          continue;
+        }
+        if (!ignored.has(button)) return button;
+      }
+      return null;
+    },
   };
 }

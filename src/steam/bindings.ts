@@ -33,7 +33,7 @@ import {
 } from "@decky/ui";
 
 import { normaliseLanguage } from "../languages";
-import { pressDetector, toUnsubscribe, VIEW_BUTTON } from "./controllerInput";
+import { createCapture, pressDetector, toUnsubscribe } from "./controllerInput";
 import type { EntryKind, LibraryEntry } from "../types";
 
 // ---------------------------------------------------------------------
@@ -493,7 +493,7 @@ export async function readClientLanguage(): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------
-// The View button
+// Controller buttons
 // ---------------------------------------------------------------------
 
 interface SteamInputApi {
@@ -501,39 +501,94 @@ interface SteamInputApi {
 }
 
 /**
- * Call `onPress` each time the View button is pressed. Returns the
- * unsubscribe function, or null when this Steam build offers no way to
- * hear the button -- the caller must say so rather than sit silent.
+ * Hear every controller input message Steam passes to plugins, raw.
+ * Returns the unsubscribe function, or null when this Steam build offers
+ * no way to hear buttons -- the caller must say so rather than sit silent.
  *
- * This is a notification, not an interception: Steam handles the press
+ * This is a notification, not an interception: Steam handles every press
  * exactly as it would without the plugin. Nothing here can block, delay
  * or consume input.
  *
- * Steam reportedly delivers these only while its own UI has input focus,
- * so a View press inside a game (where it is often the map button) should
- * not arrive here at all. That is another plugin's observation, not
- * something verified here, so the caller guards against it regardless;
- * see PreviewOverlay.
+ * Steam passes buttons to its UI only while the UI has input focus; once
+ * a game is in front it stops (confirmed by the Steamcord plugin's users,
+ * who rely on this API for a push-to-talk button). So a press inside a
+ * game -- where View is often the map button -- does not arrive here.
  */
-export function onViewButton(onPress: () => void): (() => void) | null {
+function subscribeControllerInput(handler: (...args: unknown[]) => void): (() => void) | null {
   try {
     const input = (globalThis as { SteamClient?: SteamInputApi }).SteamClient?.Input;
     const register = input?.RegisterForControllerInputMessages;
     if (typeof register !== "function") return null;
-
-    const detect = pressDetector(VIEW_BUTTON, onPress);
     const handle = register.call(input, (...args: unknown[]) => {
       // Steam's callback swallows exceptions silently, which would make a
       // bug here look like the button simply not working. Log instead.
       try {
-        detect(...args);
+        handler(...args);
       } catch (error) {
-        console.warn("[SteamView] View button handler threw:", error);
+        console.warn("[SteamView] controller input handler threw:", error);
       }
     });
     return toUnsubscribe(handle);
   } catch (error) {
-    console.warn("[SteamView] could not listen for the View button:", error);
+    console.warn("[SteamView] could not listen for controller input:", error);
     return null;
   }
+}
+
+/** Call `onPress` each time `button` is pressed. See `subscribeControllerInput`. */
+export function onControllerButton(button: number, onPress: () => void): (() => void) | null {
+  return subscribeControllerInput(pressDetector(button, onPress));
+}
+
+export type CaptureResult =
+  | { kind: "captured"; button: number }
+  /** This Steam build has no controller-input API at all. */
+  | { kind: "unavailable" }
+  /** Nothing arrived: no press, or Steam is not passing buttons to plugins. */
+  | { kind: "silent" }
+  /** Steam sent messages in a shape that could not be read. */
+  | { kind: "unrecognised" }
+  /** Messages were read, but no fresh press arrived in time. */
+  | { kind: "timeout" };
+
+/**
+ * Wait for the user to press a button, and report which ID Steam sends
+ * for it. This is how the preview button is chosen, rather than trusting
+ * a published ID that current Steam builds do not always use. When it
+ * fails, the result says which way, so the panel can tell the user
+ * something more useful than "nothing happened".
+ */
+export function captureNextButton(timeoutMs: number): Promise<CaptureResult> {
+  return new Promise((resolve) => {
+    const capture = createCapture(Date.now());
+    let done = false;
+    let unsubscribe: (() => void) | null = null;
+
+    // Only ever called after `timer` below exists: from the timer itself,
+    // from a Steam callback (always asynchronous), or after subscribing.
+    const finish = (result: CaptureResult) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      unsubscribe?.();
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => {
+      if (capture.callbacks === 0) finish({ kind: "silent" });
+      else if (capture.events === 0) finish({ kind: "unrecognised" });
+      else finish({ kind: "timeout" });
+    }, timeoutMs);
+
+    unsubscribe = subscribeControllerInput((...args: unknown[]) => {
+      const button = capture.feed(args, Date.now());
+      if (button !== null) finish({ kind: "captured", button });
+      else if (capture.callbacks > 0 && capture.events === 0 && capture.callbacks <= 3) {
+        // Log the first few raw shapes we cannot read: that is the one
+        // piece of information a fix would need.
+        console.warn("[SteamView] unrecognised controller input message:", args);
+      }
+    });
+    if (!unsubscribe) finish({ kind: "unavailable" });
+  });
 }
