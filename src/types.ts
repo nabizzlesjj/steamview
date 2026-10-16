@@ -52,6 +52,8 @@ export interface MediaResult {
 }
 
 export type PreviewMode = "trailer" | "screenshots" | "off";
+/** When the preview appears. Mirrors `steamview.settings.TRIGGERS`. */
+export type PreviewTrigger = "auto" | "view_button";
 export type OverlayPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type OverlaySize = "s" | "m" | "l";
 
@@ -59,6 +61,8 @@ export type OverlaySize = "s" | "m" | "l";
 export interface Settings {
   enabled: boolean;
   preview_mode: PreviewMode;
+  /** "auto": when a highlight settles. "view_button": only on a View press. */
+  trigger: PreviewTrigger;
   /** How long focus must settle before the overlay appears, in any mode. */
   preview_delay_ms: number;
   /** Extra delay before the trailer starts, once the overlay is up. */
@@ -77,6 +81,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
   preview_mode: "trailer",
+  trigger: "auto",
   preview_delay_ms: 300,
   autoplay_delay_ms: 600,
   muted: true,

@@ -142,7 +142,8 @@ persist across restarts.
 | --- | --- | --- |
 | **Enabled** | On | Master switch. |
 | **Preview mode** | Trailer + screenshots | `Trailer + screenshots`, `Screenshots only`, or `Off`. |
-| **Preview delay** | 300 ms | How long a game must stay highlighted before the preview appears. Applies in every mode. Lower values fetch more while scrolling. |
+| **Show preview** | Automatically | `Automatically` once a game stays highlighted, or `When I press View` — see below. |
+| **Preview delay** | 300 ms | How long a game must stay highlighted before the preview appears. Lower values fetch more while scrolling. Not used with *When I press View*. |
 | **Autoplay delay** | 600 ms | Extra wait before the trailer starts, once the preview is showing. Trailer mode only. |
 | **Muted** | On | Recommended — Steam's own UI sounds keep playing underneath. |
 | **Loop** | On | Repeat the trailer while the game stays highlighted. |
@@ -152,6 +153,18 @@ persist across restarts.
 | **Data saver** | Off | Skip video entirely; screenshots only. |
 | **Metadata language** | Match Steam | Language for the title, description and genres. *Match Steam* follows the client's own language setting; all 29 store languages can also be picked explicitly. |
 | **Clear cache** | — | Delete cached media metadata. Use if a preview looks wrong or stale. |
+
+### Showing the preview only when you ask
+
+Set **Show preview** to **When I press View** and nothing appears while
+you scroll. Highlight a game and press **View** (the button left of the
+left stick on a Deck; *Back* or *Select* on most other controllers) to
+show its preview. Press View again, or move to another game, to hide it.
+
+SteamView only listens for the button — Steam still handles the press as
+it normally would, and nothing about Steam's own controls changes. If
+your Steam version doesn't let plugins read the button, the setting says
+so.
 
 ---
 
@@ -200,8 +213,8 @@ pnpm install
 | `pnpm run watch` | Rebuild on change |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run lint` | ESLint over `src/` |
-| `pnpm run test:fe` | Overlay geometry, language and DOM-realm tests |
-| `pytest` | Backend test suite (439 tests) |
+| `pnpm run test:fe` | Overlay geometry, language, DOM-realm and View-button tests |
+| `pytest` | Backend test suite (449 tests) |
 | `make check` | Everything CI runs |
 | `make package` | Build the installable ZIP into `out/` |
 | `make licenses` | Regenerate `THIRD_PARTY_LICENSES.md` |

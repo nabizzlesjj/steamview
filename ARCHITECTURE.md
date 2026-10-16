@@ -156,6 +156,49 @@ therefore reports its own mount to the store, and if it has not mounted
 within a few seconds of load the panel says so and points at updating
 Decky.
 
+### The View button
+
+With **Show preview → When I press View**, nothing appears on its own.
+A press shows the highlighted game's preview; a second press, or moving
+to another game, hides it. `peek.ts` holds that as a pure state machine
+over one value — the `entryKey` the preview was summoned for — and the
+debounce is skipped, because the press is itself the signal that the
+user has stopped.
+
+`bindings.onViewButton` hears the button through
+`SteamClient.Input.RegisterForControllerInputMessages`. Two of that
+API's properties are undocumented and handled in `steam/controllerInput.ts`:
+
+- **The callback changed shape between Steam builds.** Older builds pass
+  an array of `{ nA: button, bS: pressed }`; newer builds pass
+  `(controllerIndex, button, pressed, …)`. The button IDs are the same
+  `EGamepadButton` values in both, View being `9`. A plugin that handles
+  one shape goes silently dead on the other — the Steamcord plugin hit
+  exactly that — so both are parsed.
+- **The unregister handle varies:** a function on some builds, an object
+  with `unregister()` on others.
+
+Presses are taken as edges: a held button that Steam reports again does
+not toggle twice. Steam's own callback wrapper swallows exceptions, so
+the handler logs its own rather than looking like a dead button.
+
+It is a notification, not an interception — Steam handles the press
+exactly as it would without the plugin, so SteamView cannot block,
+delay or consume input. The subscription exists only while that mode is
+selected and the preview is on.
+
+**Games.** View is commonly a map button, and a preview starting to play
+behind a game would be a real cost. Three things stand in the way:
+Steam reportedly delivers these messages only while its own UI has input
+focus (observed by another plugin's users, not verified here); a press
+counts only when the focus tracker reports a highlighted *library*
+entry, which a game's page and Play button are not; and a press is
+ignored while the SP window reports itself hidden.
+
+If the API is missing, `onViewButton` returns null and the settings
+panel says so under the setting, rather than leaving a mode in which
+the preview simply never appears.
+
 ### Overlay geometry
 
 The overlay renders into a portal host appended to the SP window's body.
@@ -375,6 +418,7 @@ trailer kind and screenshot count.
 | 2 | `focusin` stops firing for gamepad nav | Not relied on: the `activeElement` poll always runs, with the nav controller behind it |
 | 2a | A DOM check assumes one realm | `isElement` in `steam/dom.ts`; ESLint rejects `instanceof` against DOM classes |
 | 2b | Steam outpaces Decky's router hook | The QAM panel detects that the overlay never mounted and says to update Decky |
+| 2c | Steam changes the controller-input callback again | Both known shapes parsed; an unknown shape parses to no events, so View mode does nothing rather than misfiring, and the default *Automatically* mode does not depend on it |
 | 3 | Valve renames the props the fiber walk looks for | Four candidate paths; all constants in one block in `bindings.ts` |
 | 4 | Steam rate-limits `storesearch` on a large library | 3 concurrent max, 7-day cache, backoff honouring `Retry-After` |
 | 5 | Video decode costs battery | 480p cap, muted, autoplay delay, teardown on blur, data-saver mode |

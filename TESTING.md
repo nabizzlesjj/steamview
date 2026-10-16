@@ -242,6 +242,7 @@ Change each one, confirm the effect, then **fully restart Steam**
 | **Position** | Preview moves to each of the four corners |
 | **Size** | Small / Medium / Large visibly differ |
 | **Data saver** → on | No video in any mode; screenshots only. Autoplay/Muted/Loop grey out. |
+| **Show preview** | See Test 9 |
 | **Dynamic positioning** | See Test 9 |
 | **Metadata language** | See Test 9 |
 | **Clear cache** | Button reports how many entries went; next highlight re-fetches |
@@ -280,10 +281,33 @@ be left stranded over the chrome.
 
 ---
 
-## Test 9: dynamic positioning and language
+## Test 9: View button, dynamic positioning and language
 
-Both are off/automatic by default, so this only matters if you turn them
-on — but both are new in 1.2.0 and neither has been on hardware.
+All three are off or automatic by default, so this only matters if you
+turn them on.
+
+### Show preview → When I press View
+
+Set **Show preview** to **When I press View**.
+
+- [ ] Scrolling the library shows **no** preview at all
+- [ ] Pressing **View** on a highlighted game shows its preview at once —
+      no preview-delay wait
+- [ ] Pressing **View** again hides it
+- [ ] With a preview showing, moving to another game hides it; the new
+      game shows nothing until you press View for it
+- [ ] Holding View does not flicker the preview on and off
+- [ ] Opening a game's page, the store or a menu and pressing View there
+      shows nothing
+- [ ] **In a game**, press View (often a map button) a few times, then
+      return to the library: nothing was playing behind the game, and
+      the game received the press normally
+- [ ] Whatever Steam normally does with View in the library still
+      happens — SteamView only listens
+
+If the setting's description says Steam doesn't let plugins read the
+View button, note your SteamOS version: that is the
+`RegisterForControllerInputMessages` API being absent.
 
 ### Dynamic positioning
 

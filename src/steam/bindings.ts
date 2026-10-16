@@ -33,6 +33,7 @@ import {
 } from "@decky/ui";
 
 import { normaliseLanguage } from "../languages";
+import { pressDetector, toUnsubscribe, VIEW_BUTTON } from "./controllerInput";
 import type { EntryKind, LibraryEntry } from "../types";
 
 // ---------------------------------------------------------------------
@@ -487,6 +488,52 @@ export async function readClientLanguage(): Promise<string | null> {
     return normaliseLanguage(await get.call(settings));
   } catch (error) {
     console.warn("[SteamView] could not read Steam's language:", error);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------
+// The View button
+// ---------------------------------------------------------------------
+
+interface SteamInputApi {
+  Input?: { RegisterForControllerInputMessages?: (callback: (...args: unknown[]) => void) => unknown };
+}
+
+/**
+ * Call `onPress` each time the View button is pressed. Returns the
+ * unsubscribe function, or null when this Steam build offers no way to
+ * hear the button -- the caller must say so rather than sit silent.
+ *
+ * This is a notification, not an interception: Steam handles the press
+ * exactly as it would without the plugin. Nothing here can block, delay
+ * or consume input.
+ *
+ * Steam reportedly delivers these only while its own UI has input focus,
+ * so a View press inside a game (where it is often the map button) should
+ * not arrive here at all. That is another plugin's observation, not
+ * something verified here, so the caller guards against it regardless;
+ * see PreviewOverlay.
+ */
+export function onViewButton(onPress: () => void): (() => void) | null {
+  try {
+    const input = (globalThis as { SteamClient?: SteamInputApi }).SteamClient?.Input;
+    const register = input?.RegisterForControllerInputMessages;
+    if (typeof register !== "function") return null;
+
+    const detect = pressDetector(VIEW_BUTTON, onPress);
+    const handle = register.call(input, (...args: unknown[]) => {
+      // Steam's callback swallows exceptions silently, which would make a
+      // bug here look like the button simply not working. Log instead.
+      try {
+        detect(...args);
+      } catch (error) {
+        console.warn("[SteamView] View button handler threw:", error);
+      }
+    });
+    return toUnsubscribe(handle);
+  } catch (error) {
+    console.warn("[SteamView] could not listen for the View button:", error);
     return null;
   }
 }

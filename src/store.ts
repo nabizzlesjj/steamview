@@ -34,6 +34,13 @@ export interface PluginState {
    * happens nothing errors, the preview simply never appears.
    */
   overlayMounted: boolean;
+  /**
+   * Whether the View button can be heard, once the View-button mode has
+   * tried. "unavailable" means this Steam build offers no way to, and the
+   * settings panel must say so: in that mode the preview would otherwise
+   * simply never appear.
+   */
+  viewButton: "unknown" | "ok" | "unavailable";
 }
 
 type Listener = (state: PluginState) => void;
@@ -44,6 +51,7 @@ let state: PluginState = {
   loading: true,
   clientLanguage: null,
   overlayMounted: false,
+  viewButton: "unknown",
 };
 
 /** When the plugin loaded, so "never mounted" can allow for start-up. */
@@ -69,6 +77,10 @@ export function getState(): PluginState {
 /** Called by the overlay on mount; see `PluginState.overlayMounted`. */
 export function markOverlayMounted(): void {
   if (!state.overlayMounted) publish({ overlayMounted: true });
+}
+
+export function setViewButtonStatus(viewButton: PluginState["viewButton"]): void {
+  if (state.viewButton !== viewButton) publish({ viewButton });
 }
 
 export function setFocusStatus(focus: FocusStatus): void {

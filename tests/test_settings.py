@@ -7,7 +7,15 @@ import os
 
 import pytest
 
-from steamview.settings import DEFAULTS, POSITIONS, PREVIEW_MODES, SIZES, SettingsStore, validate
+from steamview.settings import (
+    DEFAULTS,
+    POSITIONS,
+    PREVIEW_MODES,
+    SIZES,
+    TRIGGERS,
+    SettingsStore,
+    validate,
+)
 
 
 class TestValidate:
@@ -45,6 +53,22 @@ class TestValidate:
     @pytest.mark.parametrize("size", SIZES)
     def test_every_size_is_accepted(self, size):
         assert validate({"size": size})["size"] == size
+
+    def test_the_preview_appears_automatically_by_default(self):
+        """Upgrading must not silently switch anyone to the View button."""
+        assert DEFAULTS["trigger"] == "auto"
+
+    @pytest.mark.parametrize("trigger", TRIGGERS)
+    def test_every_trigger_is_accepted(self, trigger):
+        assert validate({"trigger": trigger})["trigger"] == trigger
+
+    @pytest.mark.parametrize("raw", ["view", "VIEW BUTTON", "", None, 9, True])
+    def test_an_unknown_trigger_falls_back_to_auto(self, raw):
+        assert validate({"trigger": raw})["trigger"] == "auto"
+
+    def test_a_settings_file_from_before_triggers_existed_still_loads(self):
+        older = {key: value for key, value in DEFAULTS.items() if key != "trigger"}
+        assert validate(older)["trigger"] == "auto"
 
     @pytest.mark.parametrize(("raw", "expected"), [(-500, 0), (999999, 5000), (1200, 1200), ("800", 800)])
     def test_autoplay_delay_is_clamped(self, raw, expected):

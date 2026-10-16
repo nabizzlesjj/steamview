@@ -19,6 +19,10 @@ PREVIEW_MODES = ("trailer", "screenshots", "off")
 POSITIONS = ("top-left", "top-right", "bottom-left", "bottom-right")
 SIZES = ("s", "m", "l")
 
+#: When the preview appears: on its own once a highlight settles, or only
+#: when the user presses the View button on a game.
+TRIGGERS = ("auto", "view_button")
+
 AUTOPLAY_DELAY_MIN = 0
 AUTOPLAY_DELAY_MAX = 5000
 
@@ -31,6 +35,7 @@ PREVIEW_DELAY_MAX = 3000
 DEFAULTS: dict[str, Any] = {
     "enabled": True,
     "preview_mode": "trailer",
+    "trigger": "auto",
     "preview_delay_ms": 300,
     "autoplay_delay_ms": 600,
     "muted": True,
@@ -86,6 +91,7 @@ def validate(raw: Any) -> dict[str, Any]:
     return {
         "enabled": _as_bool(source.get("enabled"), DEFAULTS["enabled"]),
         "preview_mode": _as_choice(source.get("preview_mode"), PREVIEW_MODES, DEFAULTS["preview_mode"]),
+        "trigger": _as_choice(source.get("trigger"), TRIGGERS, DEFAULTS["trigger"]),
         "preview_delay_ms": _as_int(
             source.get("preview_delay_ms"),
             PREVIEW_DELAY_MIN,

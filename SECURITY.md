@@ -13,7 +13,7 @@ place it makes a security trade-off you should know about.
 | **Filesystem reads** | Its own settings and cache. |
 | **Process execution** | None. No `subprocess`, no `os.system`, no shell. |
 | **Dynamic code** | None. No `eval`, no `exec`, no `pickle`, no `innerHTML`, no `dangerouslySetInnerHTML`. |
-| **Steam data read** | Game name, appid and artwork URL of whichever library entry is highlighted, via Steam's in-client `appStore`; the client's UI language, via `SteamClient.Settings.GetCurrentLanguage()`. |
+| **Steam data read** | Game name, appid and artwork URL of whichever library entry is highlighted, via Steam's in-client `appStore`; the client's UI language, via `SteamClient.Settings.GetCurrentLanguage()`; and, only with **Show preview → When I press View**, controller button presses via `SteamClient.Input`, of which it acts on the View button alone and records nothing. |
 | **Network** | `store.steampowered.com` and `*.steamstatic.com`. Nothing else. |
 
 The backend is Python standard library only — no third-party runtime

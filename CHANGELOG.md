@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-10-16
+
+### Added
+
+- **Show preview → When I press View.** An alternative to the preview
+  appearing on its own: nothing shows while you scroll, pressing View on
+  a highlighted game shows its preview, and pressing View again -- or
+  moving to another game -- hides it. Preview delay does not apply; the
+  press is the signal. SteamView only listens for the button, so Steam's
+  own handling of it is unchanged. Steam has changed the shape of the
+  controller-input callback between builds, and both known shapes are
+  handled. If a Steam build offers no way to read the button, the
+  setting says so.
+
 ## [1.2.1] - 2026-10-01
 
 ### Fixed

@@ -32,9 +32,11 @@ import {
   typeScale,
   type PaneSide,
 } from "../overlayGeometry";
+import { peekAfterFocus, peekAfterPress } from "../peek";
 import {
   measureFocusCentre,
   measureLibraryPane,
+  onViewButton,
   spWindow,
   type LibraryPane,
 } from "../steam/bindings";
@@ -44,6 +46,7 @@ import {
   getState,
   markOverlayMounted,
   setFocusStatus,
+  setViewButtonStatus,
   usePluginState,
 } from "../store";
 import type { LibraryEntry, MediaResult, OverlayPosition } from "../types";
@@ -76,6 +79,9 @@ export function PreviewOverlay() {
   /** What the user asked for, regardless of whether tracking is up. */
   const wanted = settings.enabled && settings.preview_mode !== "off";
   const active = wanted && focus.ok;
+
+  /** Only show a preview when the user presses View on a game. */
+  const viewMode = settings.trigger === "view_button";
 
   // --- portal host ----------------------------------------------------
   //
@@ -213,37 +219,82 @@ export function PreviewOverlay() {
     return () => tracker.stop();
   }, [wanted]);
 
-  // --- debounce -------------------------------------------------------
+  // --- View button ----------------------------------------------------
+  //
+  // In View-button mode nothing appears on its own: a press shows the
+  // highlighted game's preview, a second press or moving on hides it.
+  // `peekKey` is the game it was summoned for; see `peek.ts`.
 
   const focusedKey = entryKey(entry);
+  const [peekKey, setPeekKey] = useState<string | null>(null);
+
+  /** The highlight as of now, for a button handler registered earlier. */
+  const focusedKeyRef = useRef(focusedKey);
+  useEffect(() => {
+    focusedKeyRef.current = focusedKey;
+    setPeekKey((current) => peekAfterFocus(current, focusedKey));
+  }, [focusedKey]);
 
   useEffect(() => {
-    if (!entry) {
+    if (!active || !viewMode) {
+      setPeekKey(null);
+      return;
+    }
+    const unsubscribe = onViewButton(() => {
+      // Steam reportedly reports buttons only while its own UI has input
+      // focus, so a View press in a game (often the map button) should
+      // never get here. If one does, the library window is not on screen, and a
+      // preview must not start playing behind the game.
+      if (spWindow()?.document?.visibilityState === "hidden") return;
+      const key = focusedKeyRef.current;
+      setPeekKey((current) => peekAfterPress(current, key));
+    });
+    setViewButtonStatus(unsubscribe ? "ok" : "unavailable");
+    return () => unsubscribe?.();
+  }, [active, viewMode]);
+
+  // --- settle ---------------------------------------------------------
+
+  /**
+   * Measure what the card's placement depends on. Run at the moment the
+   * preview is about to appear: focus is in the library, so the container
+   * is mounted, and the highlight has stopped moving, so the focused
+   * element really is the capsule the user landed on.
+   */
+  const place = useCallback(() => {
+    const measured = remeasure();
+    if (!settings.dynamic_position) return;
+    const centre = measureFocusCentre(spWindow()?.document, measured);
+    if (centre === null) return;
+    const resolved = nextSide(sideRef.current, centre);
+    if (resolved !== sideRef.current) {
+      sideRef.current = resolved;
+      setSide(resolved);
+    }
+  }, [remeasure, settings.dynamic_position]);
+
+  useEffect(() => {
+    // Which game, if any, should have a preview right now.
+    const target = viewMode ? (entry && peekKey === focusedKey ? entry : null) : entry;
+    if (!target) {
       setSettled(null);
       return;
     }
+    // A View press is itself the signal that the user has stopped: no
+    // reason to make them wait a debounce on top of it.
+    if (viewMode) {
+      place();
+      setSettled(target);
+      return;
+    }
     const timer = setTimeout(() => {
-      // Focus is in the library, so the container is mounted and this is
-      // the cheapest reliable moment to measure it. It is also the point
-      // at which the highlight has stopped moving, so the focused
-      // element really is the capsule the user landed on.
-      const measured = remeasure();
-      if (settings.dynamic_position) {
-        const centre = measureFocusCentre(spWindow()?.document, measured);
-        if (centre !== null) {
-          const resolved = nextSide(sideRef.current, centre);
-          if (resolved !== sideRef.current) {
-            sideRef.current = resolved;
-            setSide(resolved);
-          }
-        }
-      }
-      setSettled(entry);
+      place();
+      setSettled(target);
     }, settings.preview_delay_ms);
     return () => clearTimeout(timer);
     // Keyed on identity, so re-reporting the same game does not restart
     // the timer and stall the preview during continuous input.
-  }, [focusedKey, entry, settings.preview_delay_ms, settings.dynamic_position, remeasure]);
+  }, [focusedKey, entry, viewMode, peekKey, settings.preview_delay_ms, place]);
 
   // --- media resolution ----------------------------------------------
 

@@ -22,7 +22,18 @@ import { cacheStats, clearCache } from "../api";
 import { t } from "../i18n";
 import { AUTO, LANGUAGES } from "../languages";
 import { LOADED_AT, updateSettings, usePluginState } from "../store";
-import type { CacheStats, OverlayPosition, OverlaySize, PreviewMode } from "../types";
+import type {
+  CacheStats,
+  OverlayPosition,
+  OverlaySize,
+  PreviewMode,
+  PreviewTrigger,
+} from "../types";
+
+const TRIGGER_OPTIONS: { data: PreviewTrigger; label: string }[] = [
+  { data: "auto", label: "settings.triggerAuto" },
+  { data: "view_button", label: "settings.triggerViewButton" },
+];
 
 const PREVIEW_MODE_OPTIONS: { data: PreviewMode; label: string }[] = [
   { data: "trailer", label: "settings.previewModeTrailer" },
@@ -72,7 +83,8 @@ function formatBytes(bytes: number): string {
 }
 
 export function SettingsPanel() {
-  const { settings, focus, loading, clientLanguage, overlayMounted } = usePluginState();
+  const { settings, focus, loading, clientLanguage, overlayMounted, viewButton } = usePluginState();
+  const viewMode = settings.trigger === "view_button";
 
   // Re-render once the grace period ends, so a panel opened straight
   // after load can still report a missing overlay.
@@ -169,9 +181,28 @@ export function SettingsPanel() {
         </PanelSectionRow>
 
         <PanelSectionRow>
+          <DropdownItem
+            label={t("settings.trigger")}
+            description={
+              viewMode && viewButton === "unavailable"
+                ? t("settings.triggerViewButtonUnavailable")
+                : viewMode
+                  ? t("settings.triggerViewButtonDescription")
+                  : t("settings.triggerAutoDescription")
+            }
+            rgOptions={TRIGGER_OPTIONS.map(({ data, label }) => ({ data, label: t(label) }))}
+            selectedOption={settings.trigger}
+            disabled={loading || !settings.enabled}
+            onChange={(option) => void updateSettings({ trigger: option.data as PreviewTrigger })}
+          />
+        </PanelSectionRow>
+
+        <PanelSectionRow>
           <SliderField
             label={t("settings.previewDelay")}
-            description={t("settings.previewDelayDescription")}
+            description={
+              viewMode ? t("settings.previewDelayViewMode") : t("settings.previewDelayDescription")
+            }
             value={settings.preview_delay_ms}
             min={0}
             max={3000}
@@ -179,7 +210,7 @@ export function SettingsPanel() {
             notchTicksVisible={false}
             showValue={true}
             valueSuffix=" ms"
-            disabled={loading || !settings.enabled}
+            disabled={loading || !settings.enabled || viewMode}
             onChange={(preview_delay_ms) => void updateSettings({ preview_delay_ms })}
           />
         </PanelSectionRow>
