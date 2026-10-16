@@ -66,20 +66,41 @@ class TestValidate:
     def test_an_unknown_trigger_falls_back_to_auto(self, raw):
         assert validate({"trigger": raw})["trigger"] == "auto"
 
-    def test_the_preview_button_defaults_to_the_published_view_id(self):
-        assert DEFAULTS["preview_button"] == 9
+    def test_the_preview_button_defaults_to_what_a_deck_sends(self):
+        """35: a Deck's View button as measured, not the published 9."""
+        assert DEFAULTS["preview_button"] == 35
+        assert DEFAULTS["preview_button_captured"] is False
 
-    @pytest.mark.parametrize(("raw", "expected"), [(35, 35), ("20", 20), (0, 0), (255, 255)])
+    def test_an_uncaptured_9_from_1_3_moves_to_the_new_default(self):
+        """1.3.0/1.3.1 wrote their default, 9, for anyone who changed any setting."""
+        stored = {"trigger": "view_button", "preview_button": 9}
+        assert validate(stored)["preview_button"] == 35
+
+    def test_any_uncaptured_value_follows_the_default(self):
+        for raw in (9, 20, 0, "35", None):
+            assert validate({"preview_button": raw})["preview_button"] == 35
+
+    @pytest.mark.parametrize(("raw", "expected"), [(35, 35), (9, 9), ("20", 20), (0, 0), (255, 255)])
     def test_a_captured_button_is_kept(self, raw, expected):
-        assert validate({"preview_button": raw})["preview_button"] == expected
+        """Including 9: someone on an older Steam may really have captured it."""
+        result = validate({"preview_button": raw, "preview_button_captured": True})
+        assert result["preview_button"] == expected
+        assert result["preview_button_captured"] is True
 
     @pytest.mark.parametrize(("raw", "expected"), [(-1, 0), (999, 255)])
-    def test_an_out_of_range_button_is_clamped(self, raw, expected):
-        assert validate({"preview_button": raw})["preview_button"] == expected
+    def test_an_out_of_range_capture_is_clamped(self, raw, expected):
+        result = validate({"preview_button": raw, "preview_button_captured": True})
+        assert result["preview_button"] == expected
 
     @pytest.mark.parametrize("raw", ["view", None, True, [], 1.5j])
-    def test_an_unusable_button_falls_back_to_view(self, raw):
-        assert validate({"preview_button": raw})["preview_button"] == 9
+    def test_an_unusable_capture_falls_back_to_the_default(self, raw):
+        result = validate({"preview_button": raw, "preview_button_captured": True})
+        assert result["preview_button"] == 35
+
+    def test_a_capture_survives_a_save_and_reload(self, tmp_path):
+        store = SettingsStore(str(tmp_path))
+        store.update({"preview_button": 20, "preview_button_captured": True})
+        assert SettingsStore(str(tmp_path)).load()["preview_button"] == 20
 
     def test_a_settings_file_from_before_triggers_existed_still_loads(self):
         older = {key: value for key, value in DEFAULTS.items() if key != "trigger"}

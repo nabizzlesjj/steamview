@@ -63,8 +63,10 @@ export interface Settings {
   preview_mode: PreviewMode;
   /** "auto": when a highlight settles. "view_button": only on a View press. */
   trigger: PreviewTrigger;
-  /** Controller button ID for View-button mode, as captured from a press. */
+  /** Controller button ID for View-button mode. */
   preview_button: number;
+  /** Whether `preview_button` was captured from a press, not defaulted. */
+  preview_button_captured: boolean;
   /** How long focus must settle before the overlay appears, in any mode. */
   preview_delay_ms: number;
   /** Extra delay before the trailer starts, once the overlay is up. */
@@ -84,7 +86,8 @@ export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
   preview_mode: "trailer",
   trigger: "auto",
-  preview_button: 9,
+  preview_button: 35,
+  preview_button_captured: false,
   preview_delay_ms: 300,
   autoplay_delay_ms: 600,
   muted: true,

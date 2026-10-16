@@ -24,8 +24,9 @@ SIZES = ("s", "m", "l")
 TRIGGERS = ("auto", "view_button")
 
 #: The controller button ID that shows the preview in View-button mode.
-#: Captured from a real press rather than assumed, because Steam does not
-#: always send the published IDs; 9 is the published View button.
+#: Steam does not always send the published IDs, so the user can capture
+#: the real one from a press. The default is what a Steam Deck's View
+#: button was measured sending in October 2026: 35, not the published 9.
 PREVIEW_BUTTON_MIN = 0
 PREVIEW_BUTTON_MAX = 255
 
@@ -42,7 +43,11 @@ DEFAULTS: dict[str, Any] = {
     "enabled": True,
     "preview_mode": "trailer",
     "trigger": "auto",
-    "preview_button": 9,
+    "preview_button": 35,
+    #: True only once the user has captured a button with "Change". Until
+    #: then ``preview_button`` always follows the default -- including when
+    #: the default itself changes. See ``validate``.
+    "preview_button_captured": False,
     "preview_delay_ms": 300,
     "autoplay_delay_ms": 600,
     "muted": True,
@@ -92,6 +97,30 @@ def _as_int(value: Any, low: int, high: int, default: int) -> int:
     return max(low, min(high, number))
 
 
+def _preview_button(source: dict[str, Any]) -> dict[str, Any]:
+    """The preview button, honouring a stored value only if it was captured.
+
+    Every settings change rewrites the whole file, so 1.3.0 and 1.3.1
+    stored ``preview_button: 9`` -- their default -- for anyone who touched
+    *any* setting. That 9 was never chosen, and does nothing on a Deck.
+    Only a value the user captured with "Change" is a choice; anything
+    else follows the current default, so a corrected default reaches the
+    people who need it instead of only fresh installs.
+    """
+    captured = _as_bool(source.get("preview_button_captured"), False)
+    if not captured:
+        return {"preview_button": DEFAULTS["preview_button"], "preview_button_captured": False}
+    return {
+        "preview_button": _as_int(
+            source.get("preview_button"),
+            PREVIEW_BUTTON_MIN,
+            PREVIEW_BUTTON_MAX,
+            DEFAULTS["preview_button"],
+        ),
+        "preview_button_captured": True,
+    }
+
+
 def validate(raw: Any) -> dict[str, Any]:
     """Coerce ``raw`` into a complete, in-range settings dict."""
     source = raw if isinstance(raw, dict) else {}
@@ -99,12 +128,7 @@ def validate(raw: Any) -> dict[str, Any]:
         "enabled": _as_bool(source.get("enabled"), DEFAULTS["enabled"]),
         "preview_mode": _as_choice(source.get("preview_mode"), PREVIEW_MODES, DEFAULTS["preview_mode"]),
         "trigger": _as_choice(source.get("trigger"), TRIGGERS, DEFAULTS["trigger"]),
-        "preview_button": _as_int(
-            source.get("preview_button"),
-            PREVIEW_BUTTON_MIN,
-            PREVIEW_BUTTON_MAX,
-            DEFAULTS["preview_button"],
-        ),
+        **_preview_button(source),
         "preview_delay_ms": _as_int(
             source.get("preview_delay_ms"),
             PREVIEW_DELAY_MIN,

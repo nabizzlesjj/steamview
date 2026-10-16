@@ -100,7 +100,9 @@ export function SettingsPanel() {
     try {
       const result = await captureNextButton(CAPTURE_TIMEOUT_MS);
       setCaptureResult(result);
-      if (result.kind === "captured") await updateSettings({ preview_button: result.button });
+      if (result.kind === "captured") {
+        await updateSettings({ preview_button: result.button, preview_button_captured: true });
+      }
     } finally {
       setCapturing(false);
     }

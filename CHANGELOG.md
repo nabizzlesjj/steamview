@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] - 2026-10-16
+
+### Changed
+
+- **The View button works on a Steam Deck without setting anything up.**
+  Its real ID through Steam's controller API turned out to be 35, not the
+  published 9, so 35 is now the default and *Change* is only needed on
+  other devices. Upgrading moves you onto it too: 1.3.0 and 1.3.1 saved
+  their default of 9 along with any other setting you changed, and that
+  saved 9 is now ignored. A button you actually picked with *Change* is
+  kept.
+
 ## [1.3.1] - 2026-10-16
 
 ### Fixed

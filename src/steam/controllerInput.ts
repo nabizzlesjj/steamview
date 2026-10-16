@@ -22,12 +22,12 @@
  * left of the left stick on a Deck, "Back"/"Select" on most other pads --
  * as `ControllerInputGamepadButton.GAMEPAD_BUTTON_VIEW` in `@decky/ui`.
  *
- * Only a default. Current Steam builds do not always send the published
- * values through this API: the Steamcord plugin measured the D-pad
- * arriving as 20-23 rather than 4-7 in September 2026, and View did
- * nothing on a Deck with 1.3.0. So the button is *captured* -- the user
- * presses it once and whatever ID Steam actually sends is stored -- and
- * this is only where that starts.
+ * Current Steam builds do not send it. Through this API a Steam Deck's
+ * View button arrives as **35** (measured October 2026), much as the
+ * Steamcord plugin measured the D-pad arriving as 20-23 rather than 4-7.
+ * 35 is therefore the default (see `steamview.settings`), and the user
+ * can capture whatever their device really sends; this constant is kept
+ * because older builds may still use it.
  */
 export const VIEW_BUTTON = 9;
 
@@ -43,6 +43,8 @@ const BUTTON_NAMES: Record<number, string> = {
   3: "Y",
   8: "Menu",
   9: "View",
+  // What a Steam Deck's View button actually sends on current Steam.
+  35: "View",
   28: "Left trigger",
   29: "Right trigger",
   30: "Left bumper",

@@ -182,8 +182,12 @@ API's properties are undocumented and handled in `steam/controllerInput.ts`:
   nothing. Steamcord had already measured the D-pad arriving as 20–23
   rather than the published 4–7 on September 2026 builds. So the button
   is *captured*: **Preview button → Change** listens for the next press
-  and stores whatever ID Steam actually sent (`preview_button`, default
-  `9`). `createCapture` ignores the A press that started it, which Steam
+  and stores whatever ID Steam actually sent. A Deck's View button turned
+  out to send **35**, which has been the default (`preview_button`) since
+  1.3.2. A stored value counts only if `preview_button_captured` is set:
+  every save rewrites the whole settings file, so 1.3.0 and 1.3.1 stored
+  their default, 9, for anyone who changed any setting, and honouring
+  that would have kept the corrected default from ever reaching them. `createCapture` ignores the A press that started it, which Steam
   can report as still held, and a capture that hears nothing says why —
   no messages at all, messages in an unreadable shape, or no fresh press —
   instead of failing quietly.

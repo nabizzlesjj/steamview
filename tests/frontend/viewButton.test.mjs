@@ -168,5 +168,7 @@ test("a capture can tell silence from an unreadable message", () => {
 test("button labels name what they can and number everything", () => {
   assert.equal(buttonLabel(9), "View (9)");
   assert.equal(buttonLabel(0), "A (0)");
-  assert.equal(buttonLabel(35), "Button 35");
+  // What a Deck's View button actually sends on current Steam.
+  assert.equal(buttonLabel(35), "View (35)");
+  assert.equal(buttonLabel(36), "Button 36");
 });
