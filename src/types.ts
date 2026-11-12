@@ -43,6 +43,8 @@ export interface MediaResult {
   trailer_url: string | null;
   trailer_kind: "microtrailer" | "webm" | "mp4" | null;
   trailer_thumbnail: string | null;
+  /** The full trailer, with the game's audio: played when Muted is off. */
+  trailer_audio_url: string | null;
   screenshot_urls: string[];
   hero_url: string | null;
   /** Steam's store blurb, already stripped of markup by the backend. */

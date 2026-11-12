@@ -234,6 +234,7 @@ class TestSerialisation:
             "trailer_url",
             "trailer_kind",
             "trailer_thumbnail",
+            "trailer_audio_url",
             "screenshot_urls",
             "hero_url",
             "short_description",
@@ -410,3 +411,38 @@ class TestUrlSchemeRestriction:
         )
         assert result.hero_url is None
         assert result.screenshot_urls == ["https://cdn/ok.jpg"]
+
+
+class TestTrailerWithSound:
+    """With Muted off, the overlay plays the full trailer, not the hover clip."""
+
+    def test_the_full_trailer_is_offered_beside_a_microtrailer(self, appdetails_payload):
+        result = build_from_appdetails(
+            appdetails_payload, key="k", kind="steam", resolved_appid=7, probe=lambda url: True
+        )
+        assert result.trailer_kind == "microtrailer"
+        assert result.trailer_audio_url is not None
+        assert result.trailer_audio_url != result.trailer_url
+        assert result.trailer_audio_url.endswith((".webm", ".mp4"))
+
+    def test_without_a_microtrailer_both_are_the_same_full_trailer(self, appdetails_payload):
+        result = build_from_appdetails(
+            appdetails_payload, key="k", kind="steam", resolved_appid=7, probe=lambda url: False
+        )
+        assert result.trailer_kind in ("webm", "mp4")
+        assert result.trailer_audio_url == result.trailer_url
+
+    def test_mp4_is_used_when_there_is_no_webm(self):
+        movie = {"id": 1, "mp4": {"480": "http://cdn/movie480.mp4"}}
+        assert media.resolve_audio_trailer(movie) == "https://cdn/movie480.mp4"
+
+    @pytest.mark.parametrize("movie", [None, {}, {"id": 1}, "junk", {"webm": "not a dict"}])
+    def test_no_usable_movie_means_no_audio_trailer(self, movie):
+        assert media.resolve_audio_trailer(movie) is None
+
+    def test_it_survives_the_cache_round_trip(self, appdetails_payload):
+        original = build_from_appdetails(
+            appdetails_payload, key="k", kind="steam", resolved_appid=7, probe=lambda url: True
+        )
+        restored = MediaResult.from_dict(original.to_dict())
+        assert restored.trailer_audio_url == original.trailer_audio_url

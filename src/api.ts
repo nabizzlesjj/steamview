@@ -22,6 +22,7 @@ export function emptyMedia(key = "", note: string | null = null): MediaResult {
     trailer_url: null,
     trailer_kind: null,
     trailer_thumbnail: null,
+    trailer_audio_url: null,
     screenshot_urls: [],
     hero_url: null,
     short_description: null,

@@ -14,6 +14,13 @@ Trailer selection, best first:
    therefore always correct when present.
 3. The movie's 480p ``mp4``, for the rare entry with no webm variant.
 
+Separately, :attr:`MediaResult.trailer_audio_url` is always the full
+trailer (2, else 3), whatever step 1 found. The microtrailer exists to be
+a silent hover loop, so with the user's **Muted** setting off it is the
+wrong clip: someone who turned sound on wants to hear the trailer, and
+the full one is the clip that has its audio. The frontend picks between
+the two by that setting, which keeps this cached result valid either way.
+
 Because step 1 is a guess about a CDN path Valve has never documented, it
 is written as a probe over a candidate list. If Valve moves or removes
 microtrailers the probe simply fails and step 2 takes over -- no code
@@ -72,6 +79,9 @@ class MediaResult:
     trailer_url: str | None = None
     trailer_kind: str | None = None
     trailer_thumbnail: str | None = None
+    #: The full trailer, which carries the game's audio; see the module
+    #: docstring. Equal to ``trailer_url`` when no microtrailer was used.
+    trailer_audio_url: str | None = None
     screenshot_urls: list[str] = field(default_factory=list)
     hero_url: str | None = None
     short_description: str | None = None
@@ -92,6 +102,7 @@ class MediaResult:
             "trailer_url": self.trailer_url,
             "trailer_kind": self.trailer_kind,
             "trailer_thumbnail": self.trailer_thumbnail,
+            "trailer_audio_url": self.trailer_audio_url,
             "screenshot_urls": list(self.screenshot_urls),
             "hero_url": self.hero_url,
             "short_description": self.short_description,
@@ -113,6 +124,7 @@ class MediaResult:
             trailer_url=raw.get("trailer_url") or None,
             trailer_kind=raw.get("trailer_kind") or None,
             trailer_thumbnail=raw.get("trailer_thumbnail") or None,
+            trailer_audio_url=raw.get("trailer_audio_url") or None,
             screenshot_urls=[str(url) for url in screenshots if isinstance(url, str)]
             if isinstance(screenshots, list)
             else [],
@@ -294,6 +306,17 @@ def resolve_trailer(
     return None, None
 
 
+def resolve_audio_trailer(movie: dict[str, Any] | None) -> str | None:
+    """The full trailer, which has the game's audio, or ``None``.
+
+    Needs no probe: the webm and mp4 variants are published in the
+    payload, so this costs nothing beyond the request already made.
+    """
+    if not isinstance(movie, dict):
+        return None
+    return _variant(movie, "webm") or _variant(movie, "mp4")
+
+
 def extract_screenshots(payload: Any, limit: int = MAX_SCREENSHOTS) -> list[str]:
     """Full-size screenshot URLs from an appdetails payload."""
     screenshots = payload.get("screenshots") if isinstance(payload, dict) else None
@@ -336,6 +359,7 @@ def build_from_appdetails(
         trailer_url=trailer_url,
         trailer_kind=trailer_kind,
         trailer_thumbnail=https(movie.get("thumbnail")) if isinstance(movie, dict) else None,
+        trailer_audio_url=resolve_audio_trailer(movie),
         screenshot_urls=extract_screenshots(data),
         hero_url=https(data.get("header_image")) or fallback_hero,
         short_description=clean_description(data.get("short_description")),

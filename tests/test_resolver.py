@@ -361,3 +361,31 @@ class TestConcurrencyLimit:
         await asyncio.gather(*(resolver.get_media({"appid": i, "name": f"G{i}"}) for i in range(1, 25)))
 
         assert peak <= 3
+
+
+class TestEntriesFromBeforeTheAudioTrailer:
+    """Cached results written before 1.3.3 lack the full-trailer URL."""
+
+    async def test_an_old_entry_is_re_resolved_once(self, cache, fake_store, hades_details):
+        resolver, store = make_resolver(cache, fake_store, appdetails=hades_details)
+        entry = {"appid": HADES_APPID, "name": "Hades"}
+        old = (await resolver.get_media(entry))
+        old.pop("trailer_audio_url")
+        cache.put(old["key"], old)
+
+        result = await resolver.get_media(entry)
+        assert "trailer_audio_url" in result
+        assert len(store.appdetails_calls) == 2
+
+        # ...and is then served from the cache like any other.
+        await resolver.get_media(entry)
+        assert len(store.appdetails_calls) == 2
+
+    async def test_prefetch_refreshes_an_old_entry_too(self, cache, fake_store, hades_details):
+        resolver, store = make_resolver(cache, fake_store, appdetails=hades_details)
+        entry = {"appid": HADES_APPID, "name": "Hades"}
+        old = await resolver.get_media(entry)
+        old.pop("trailer_audio_url")
+        cache.put(old["key"], old)
+
+        assert await resolver.prefetch([entry]) == 1

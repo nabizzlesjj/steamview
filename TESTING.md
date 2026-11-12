@@ -237,7 +237,7 @@ Change each one, confirm the effect, then **fully restart Steam**
 | **Preview mode** | All three modes behave as in Test 5 |
 | **Autoplay delay** → 3000 ms | Highlight a game: art first, video only after ~3s |
 | **Autoplay delay** → 0 ms | Video starts as soon as the debounce settles |
-| **Muted** → off | Audio plays *over* Steam's UI sounds. Turn it back on. |
+| **Muted** → off | Highlight a game you have viewed before: its **full** trailer plays **with sound**, over Steam's UI sounds — not the short silent clip. If the Muted row instead says Steam refused trailer sound, note your SteamOS version. Turn it back on. |
 | **Loop** → off | Trailer plays once and stops on its last frame |
 | **Position** | Preview moves to each of the four corners |
 | **Size** | Small / Medium / Large visibly differ |

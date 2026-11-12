@@ -34,6 +34,19 @@ DEFAULT_MAX_CONCURRENCY = 3
 #: certainly changed direction anyway.
 MAX_PREFETCH = 8
 
+#: A cached result without this key was written before 1.3.3, which added
+#: the full trailer for playing with sound. Such an entry is re-resolved
+#: once rather than served: otherwise turning Muted off would keep playing
+#: the silent preview clip until the entry expired, up to a week later.
+CURRENT_RESULT_KEY = "trailer_audio_url"
+
+
+def _current(cached: dict[str, Any] | None) -> dict[str, Any] | None:
+    """``cached``, unless it predates the current result shape."""
+    if cached is None or CURRENT_RESULT_KEY not in cached:
+        return None
+    return cached
+
 
 class MediaResolver:
     """Resolves library entries to media objects, with caching."""
@@ -71,7 +84,7 @@ class MediaResolver:
         if entry is None:
             return media.MediaResult(key="", kind="", note="invalid-entry").to_dict()
 
-        cached = self.cache.get(entry.cache_key)
+        cached = _current(self.cache.get(entry.cache_key))
         if cached is not None:
             return cached
 
@@ -111,7 +124,7 @@ class MediaResolver:
                 continue
             if entry is None or entry.cache_key in seen:
                 continue
-            if self.cache.get(entry.cache_key) is not None:
+            if _current(self.cache.get(entry.cache_key)) is not None:
                 continue
             seen.add(entry.cache_key)
             pending.append(entry)

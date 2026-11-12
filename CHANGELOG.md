@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.3] - 2026-11-12
+
+### Fixed
+
+- **Turning Muted off gave no sound.** For most games the preview plays
+  Steam's short hover clip, which is meant to be silent, and the setting
+  only un-muted that clip. With Muted off, SteamView now plays the game's
+  full trailer, which has its audio. Previews you have already seen are
+  re-fetched once to pick this up.
+- If Steam ever refuses to play trailer sound, the trailer now plays
+  silently instead of falling back to screenshots, and the Muted setting
+  says why.
+- Changing a trailer in place -- toggling Muted mid-play, or moving to
+  another game with Autoplay delay at 0 -- could leave a blank video.
+  Each clip now gets a fresh player.
+
 ## [1.3.2] - 2026-10-16
 
 ### Changed

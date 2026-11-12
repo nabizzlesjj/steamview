@@ -13,9 +13,20 @@
  *   `<video>` is not always enough.
  * - Any playback or network error calls `onUnplayable`, which drops the
  *   overlay to screenshots rather than showing a black box.
+ *
+ * Playback is started with an explicit `play()` rather than the
+ * `autoplay` attribute, so that a refusal can be handled. Chromium may
+ * refuse to start a video *with sound* that no click or tap asked for.
+ * Steam's browser has been
+ * seen allowing it -- the AudioLoader plugin starts menu music with a
+ * plain `play()` -- but if a refusal ever comes, the trailer plays
+ * silently rather than not at all, and `onSound("blocked")` lets the
+ * settings panel say why there is no audio.
  */
 
 import { useEffect, useRef, useState } from "react";
+
+import { startPlayback } from "../playback";
 
 interface TrailerPlayerProps {
   url: string;
@@ -26,7 +37,10 @@ interface TrailerPlayerProps {
   delayMs: number;
   /** Called when this trailer cannot be played, for any reason. */
   onUnplayable: () => void;
+  /** Whether a trailer meant to have sound got to play with it. */
+  onSound?: (outcome: "ok" | "blocked") => void;
 }
+
 
 export function TrailerPlayer({
   url,
@@ -35,9 +49,17 @@ export function TrailerPlayer({
   loop,
   delayMs,
   onUnplayable,
+  onSound,
 }: TrailerPlayerProps) {
   const [armed, setArmed] = useState(delayMs <= 0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  /**
+   * True once sound was refused and the trailer fell back to silence.
+   * Read by `onPlaying`, which otherwise re-applies the user's setting
+   * and would undo the fallback it just made.
+   */
+  const forcedMute = useRef(false);
 
   // Re-arm from scratch whenever the trailer changes.
   useEffect(() => {
@@ -65,6 +87,24 @@ export function TrailerPlayer({
     };
   }, [url, armed]);
 
+  // Start playback, and re-apply the setting when it changes mid-play.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!armed || !video) return;
+    let cancelled = false;
+    forcedMute.current = false;
+    void startPlayback(video, muted, () => cancelled, {
+      onSound,
+      onUnplayable,
+      onForcedMute: () => {
+        forcedMute.current = true;
+      },
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [armed, url, muted, onSound, onUnplayable]);
+
   if (!armed) {
     return poster ? (
       <img src={poster} alt="" style={STILL_STYLE} draggable={false} />
@@ -73,10 +113,14 @@ export function TrailerPlayer({
 
   return (
     <video
+      // A fresh element per source: the teardown above clears the element
+      // it was given, and reusing one across sources let it clear the
+      // *new* source when a clip changed in place (Muted toggled mid-play,
+      // or a game changed with no autoplay delay).
+      key={url}
       ref={videoRef}
       src={url}
       poster={poster ?? undefined}
-      autoPlay
       muted={muted}
       loop={loop}
       playsInline
@@ -87,9 +131,11 @@ export function TrailerPlayer({
       onError={onUnplayable}
       onStalled={onUnplayable}
       onPlaying={() => {
-        // Steam can un-mute media it did not create; hold the setting.
+        // Steam can un-mute media it did not create; hold the setting --
+        // unless sound was refused, when silence is the fallback to keep.
         const video = videoRef.current;
-        if (video && video.muted !== muted) video.muted = muted;
+        const want = muted || forcedMute.current;
+        if (video && video.muted !== want) video.muted = want;
       }}
     />
   );

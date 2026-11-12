@@ -41,6 +41,12 @@ export interface PluginState {
    * simply never appear.
    */
   viewButton: "unknown" | "ok" | "unavailable";
+  /**
+   * Whether a trailer meant to have sound last got to play with it.
+   * "blocked" means Steam's browser refused sound and the trailer played
+   * silently; the settings panel says so under Muted.
+   */
+  trailerSound: "unknown" | "ok" | "blocked";
 }
 
 type Listener = (state: PluginState) => void;
@@ -52,6 +58,7 @@ let state: PluginState = {
   clientLanguage: null,
   overlayMounted: false,
   viewButton: "unknown",
+  trailerSound: "unknown",
 };
 
 /** When the plugin loaded, so "never mounted" can allow for start-up. */
@@ -77,6 +84,10 @@ export function getState(): PluginState {
 /** Called by the overlay on mount; see `PluginState.overlayMounted`. */
 export function markOverlayMounted(): void {
   if (!state.overlayMounted) publish({ overlayMounted: true });
+}
+
+export function setTrailerSound(trailerSound: PluginState["trailerSound"]): void {
+  if (state.trailerSound !== trailerSound) publish({ trailerSound });
 }
 
 export function setViewButtonStatus(viewButton: PluginState["viewButton"]): void {

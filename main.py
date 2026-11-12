@@ -85,6 +85,7 @@ class Plugin:
                 "trailer_url": None,
                 "trailer_kind": None,
                 "trailer_thumbnail": None,
+                "trailer_audio_url": None,
                 "screenshot_urls": [],
                 "hero_url": None,
                 "note": "backend-error",

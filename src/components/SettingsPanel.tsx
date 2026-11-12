@@ -88,7 +88,8 @@ function formatBytes(bytes: number): string {
 }
 
 export function SettingsPanel() {
-  const { settings, focus, loading, clientLanguage, overlayMounted, viewButton } = usePluginState();
+  const { settings, focus, loading, clientLanguage, overlayMounted, viewButton, trailerSound } =
+    usePluginState();
   const viewMode = settings.trigger === "view_button";
 
   const [capturing, setCapturing] = useState(false);
@@ -290,7 +291,11 @@ export function SettingsPanel() {
         <PanelSectionRow>
           <ToggleField
             label={t("settings.muted")}
-            description={t("settings.mutedDescription")}
+            description={
+              !settings.muted && trailerSound === "blocked"
+                ? t("settings.mutedBlocked")
+                : t("settings.mutedDescription")
+            }
             checked={settings.muted}
             disabled={loading || !settings.enabled || videoDisabled}
             onChange={(muted) => void updateSettings({ muted })}

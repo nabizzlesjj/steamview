@@ -19,7 +19,8 @@ libraries imported by [Unifideck](https://github.com/mubaraknumann/unifideck)
 Highlight a game. After a moment, a preview appears:
 
 1. **Trailer** — Steam's ~6 second silent microtrailer where one exists,
-   otherwise the game's 480p trailer. Muted and looping.
+   otherwise the game's 480p trailer. Muted and looping by default; turn
+   **Muted** off and the full trailer plays with sound instead.
 2. **Screenshots** — a slow crossfading reel, when there's no usable
    video.
 3. **Hero art** — the capsule the client already has.
@@ -145,7 +146,7 @@ persist across restarts.
 | **Show preview** | Automatically | `Automatically` once a game stays highlighted, or `When I press View` — see below. |
 | **Preview delay** | 300 ms | How long a game must stay highlighted before the preview appears. Lower values fetch more while scrolling. Not used with *When I press View*. |
 | **Autoplay delay** | 600 ms | Extra wait before the trailer starts, once the preview is showing. Trailer mode only. |
-| **Muted** | On | Recommended — Steam's own UI sounds keep playing underneath. |
+| **Muted** | On | Turn off to hear trailers: SteamView then plays the game's full trailer, since the short preview clip is meant to be silent. Steam's own UI sounds keep playing underneath. |
 | **Loop** | On | Repeat the trailer while the game stays highlighted. |
 | **Overlay position** | Bottom right | Which corner the card sits in. |
 | **Dynamic positioning** | Off | Move the card to the opposite side of the screen from the highlighted game, so it never covers what you're looking at. Your chosen top/bottom half is kept. |
@@ -219,8 +220,8 @@ pnpm install
 | `pnpm run watch` | Rebuild on change |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run lint` | ESLint over `src/` |
-| `pnpm run test:fe` | Overlay geometry, language, DOM-realm and View-button tests |
-| `pytest` | Backend test suite (465 tests) |
+| `pnpm run test:fe` | Overlay geometry, language, DOM-realm, View-button and playback tests |
+| `pytest` | Backend test suite (476 tests) |
 | `make check` | Everything CI runs |
 | `make package` | Build the installable ZIP into `out/` |
 | `make licenses` | Regenerate `THIRD_PARTY_LICENSES.md` |

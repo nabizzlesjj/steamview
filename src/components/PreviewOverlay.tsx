@@ -46,6 +46,7 @@ import {
   getState,
   markOverlayMounted,
   setFocusStatus,
+  setTrailerSound,
   setViewButtonStatus,
   usePluginState,
 } from "../store";
@@ -369,6 +370,12 @@ export function PreviewOverlay() {
   const width = cardWidth(settings.size, pane?.width ?? null);
   const scale = typeScale(settings.size, width);
   const position = resolvePosition(settings.position, side, settings.dynamic_position);
+  // With sound on, the full trailer: the preferred preview clip is Steam's
+  // short hover loop, which exists to be silent, so un-muting it alone
+  // gave no sound at all. Entries cached before 1.3.3 lack the full URL
+  // until they are re-fetched, and fall back to the preview clip.
+  const trailerUrl =
+    !settings.muted && media.trailer_audio_url ? media.trailer_audio_url : media.trailer_url;
   // The title alone is worth a panel; a shortcut with no store match
   // still gets a labelled preview rather than an anonymous video.
   const hasInfo = Boolean(media.title || media.genres.length > 0 || media.short_description);
@@ -381,14 +388,15 @@ export function PreviewOverlay() {
       <style>{KEYFRAMES}</style>
       <div style={CARD_STYLE}>
         <div style={MEDIA_STYLE}>
-          {stage === "trailer" && media.trailer_url ? (
+          {stage === "trailer" && trailerUrl ? (
             <TrailerPlayer
-              url={media.trailer_url}
+              url={trailerUrl}
               poster={media.trailer_thumbnail ?? media.hero_url}
               muted={settings.muted}
               loop={settings.loop}
               delayMs={settings.autoplay_delay_ms}
               onUnplayable={demote}
+              onSound={setTrailerSound}
             />
           ) : null}
 

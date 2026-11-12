@@ -354,6 +354,24 @@ In order:
 If Valve moves or removes microtrailers, step 1 stops matching and step 2
 takes over with no code change.
 
+**With sound.** The microtrailer exists to be a silent hover loop, so it
+is the wrong clip when the user turns **Muted** off. Up to 1.3.2 the
+setting only flipped the element's `muted` flag, which un-muted a clip
+with nothing to hear. Every result now also carries `trailer_audio_url`,
+the full trailer (step 2, else 3), and the overlay plays that instead
+whenever Muted is off. Keeping both in one cached result means the
+choice is the frontend's and the cache stays valid either way; entries
+cached before the field existed are re-resolved once rather than served.
+
+Playback starts with an explicit `play()` (`src/playback.ts`) rather than
+the `autoplay` attribute, so a refusal can be handled. Chromium may
+refuse to start a video with sound that no click asked for. Steam's
+browser has been seen allowing it — the AudioLoader plugin starts menu
+music with a plain `play()` — but if it ever refuses, the trailer plays
+silently instead of falling back to screenshots, and the Muted row says
+why. Tested in Chromium under both autoplay policies: sound allowed
+plays audibly; refused falls back to silent, still playing.
+
 ### Metadata language
 
 The title, description and genres come from `appdetails`, which localises
